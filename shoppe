@@ -1,0 +1,133 @@
+#!/bin/bash
+
+# shoppe by knuxify
+version="build 2019-04-26"
+debug=true
+
+# Colors
+color() {
+	case $1 in
+		0) printf "\033[30m";;
+		1) printf "\033[31m";;
+		2) printf "\033[32m";;
+		3) printf "\033[33m";;
+		4) printf "\033[34m";;
+		5) printf "\033[35m";;
+		6) printf "\033[36m";;
+		7) printf "\033[37m";;
+		r) printf "\033[0m";;
+	esac
+}
+infoPrefix="$(color 4)||$(color r)"
+warnPrefix="$(color 3)~!$(color r)"
+errorPrefix="$(color 1)!!$(color r)"
+debugPrefix="$(color 5)~~$(color r)"
+debugprint() {
+	if [ "$debug" = "true" ]; then
+		echo -e "$debugPrefix $*"
+	fi
+}
+
+debugprint "shoppe version $version"
+
+# Don't run shoppe as root!
+if [ "$EUID" -eq 0 ]; then echo -e "$errorprefix Don't run shoppe as root!"; exit 4; fi
+
+# TODO package managers
+unsupportedManagers="emerge nix-env"
+# emerge - Gentoo would require searching for the right repo for the package, and not following that would cause false failures.
+# nix-env - I can't figure out how to install a package and I'm certainly not installing nixOS just to find out.
+
+# Detect currently installed package managers
+supportedManagers="pkg apt apt-get yum dnf pacman yaourt pacaur yay apk"
+
+for pm in $supportedManagers; do
+	if command -v $pm &>/dev/null; then
+		installed="$installed $pm"
+		debugprint "Found $pm."
+	fi
+done
+
+for pm in $unsupportedManagers; do
+	if command -v $pm &>/dev/null; then
+		echo -e "$warnPrefix Detected a known but unsupported package manager: $pm."
+		echo -e "$warnPrefix It might be added in a later update."
+	fi
+done
+
+success() {
+	echo "$infoPrefix Success."
+	exit 0
+}
+
+# Functions: Install, remove, update, upgrade.
+# Future functions: fetch, find, info.
+shoppeinstaller() {
+	echo "$infoPrefix Searching on shoppe repos..."
+}
+
+install() {
+	if [ -z "$*" ]; then echo -e "$errorPrefix Nothing to install!"; exit 2; fi
+	for pm in $installed; do
+		echo -e "$infoPrefix Using $pm..."
+		case $pm in
+			apt|apt-get|yum|dnf) sudo $pm install $* && success;;
+			pkg) $pm install $* && success;;
+			pacman) sudo $pm -S $* && success;;
+			yaourt|yay) $pm -S $* && success;;
+			apk) sudo $pm add $* && success;;
+		esac
+		echo -e "$warnPrefix $pm failed."
+	done
+	shoppeinstaller
+	echo -e "$errorPrefix Failed to install. Check your spelling."
+}
+
+remove() {
+	if [ -z "$*" ]; then echo -e "$errorPrefix Nothing to remove!"; exit 2; fi
+	for pm in $installed; do
+		echo -e "$infoPrefix Using $pm..."
+		case $pm in
+			apt|apt-get|yum|dnf) sudo $pm remove $* && success;;
+			pkg) $pm remove $* && success;;
+			pacman) sudo $pm -R $* && success;;
+			yaourt|yay) $pm -R $* && success;;
+			apk) sudo $pm del $* && success;;
+		esac
+		echo -e "$warnPrefix $pm failed."
+	done
+	echo -e "$errorPrefix Failed to remove. Check your spelling."
+}
+
+update() {
+	for pm in $installed; do
+		echo -e "$infoPrefix Using $pm..."
+		case $pm in
+			apt|apt-get|yum|dnf|apk) sudo $pm update $* && success;;
+			pkg) $pm update $* && success;;
+			pacman) sudo $pm -Sy && success;;
+			yaourt|yay) $pm -Sy && success;;
+			# Pacman and AUR helpers don't accept custom commands because that would allow them to install packages with -Sy, which is not reccomended.
+		esac
+		echo -e "$warnPrefix $pm failed."
+	done
+	echo -e "$errorPrefix Repo update failed."
+}
+
+
+upgrade() {
+	for pm in $installed; do
+		echo -e "$infoPrefix Using $pm..."
+		case $pm in
+			apt|apt-get|yum|dnf|apk) sudo $pm upgrade $* && success;;
+			pkg) $pm upgrade $* && success;;
+			pacman) sudo $pm -Syu $* && success;;
+			yaourt|yay) $pm -Syu $* && success;;
+		esac
+		echo -e "$warnPrefix $pm failed."
+	done
+	echo -e "$errorPrefix Upgrade failed."
+}
+
+# Parse options.
+$*
