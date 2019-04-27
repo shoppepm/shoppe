@@ -94,7 +94,7 @@ pinstall() {
 	for pm in $installed; do
 		echo -e "$infoPrefix Using $pm..."
 		case $pm in
-			apt|apt-get|yum|dnf|eopkg) sudo $pm install $packages $switches && success;;
+			apt|apt-get|yum|dnf|eopkg|zypper) sudo $pm install $packages $switches && success;;
 			pkg) $pm install $packages $switches && success;;
 			pacman) sudo $pm -S $packages $switches && success;;
 			yaourt|yay) $pm -S $packages $switches && success;;
@@ -176,7 +176,7 @@ premove() {
 	for pm in $installed; do
 		echo -e "$infoPrefix Using $pm..."
 		case $pm in
-			apt|apt-get|yum|dnf|eopkg) sudo $pm remove $packages $switches && success;;
+			apt|apt-get|yum|dnf|eopkg|zypper) sudo $pm remove $packages $switches && success;;
 			pkg) $pm remove $packages $switches && success;;
 			pacman) sudo $pm -R $packages $switches && success;;
 			yaourt|yay) $pm -R $packages $switches && success;;
@@ -191,7 +191,7 @@ pupdate() {
 	for pm in $installed; do
 		echo -e "$infoPrefix Using $pm..."
 		case $pm in
-			apt|apt-get|yum|dnf|eopkg|apk) sudo $pm update $switches && success;;
+			apt|apt-get|yum|dnf|eopkg|zypper|apk) sudo $pm update $switches && success;;
 			pkg) $pm update $switches && success;;
 			pacman) sudo $pm -Sy $switches && success;;
 			yaourt|yay) $pm -Sy $switches && success;;
@@ -206,7 +206,7 @@ pupgrade() {
 	for pm in $installed; do
 		echo -e "$infoPrefix Using $pm..."
 		case $pm in
-			apt|apt-get|yum|dnf|eopkg|apk) sudo $pm upgrade $packages $switches && success;;
+			apt|apt-get|yum|dnf|eopkg|zypper|apk) sudo $pm upgrade $packages $switches && success;;
 			pkg) $pm upgrade $packages $switches && success;;
 			pacman) sudo $pm -Syu $packages $switches && success;;
 			yaourt|yay) $pm -Syu $packages $switches && success;;
