@@ -33,6 +33,21 @@ debugprint "shoppe version $version"
 # Don't run shoppe as root!
 if [ "$EUID" -eq 0 ]; then echo -e "$errorprefix Don't run shoppe as root!"; exit 4; fi
 
+repofile="$HOME/.config/shoppe/repos"
+configfile="$HOME/.config/shoppe/config"
+
+# Create shoppe files
+if ! [ -e "$HOME/.config/shoppe" ]; then
+	mkdir $HOME/.config/shoppe
+	touch $HOME/.config/shoppe/config
+	echo "GithubRepo=knuxify/shoppe-repos" > $repofile
+fi
+
+# Load shoppe config
+while IFS="" read -r configline || [ -n "$configline" ]; do
+	echo "TODO"
+done < $configfile
+
 # TODO package managers
 unsupportedManagers="emerge nix-env"
 # emerge - Gentoo would require searching for the right repo for the package, and not following that would cause false failures.
@@ -62,52 +77,53 @@ success() {
 
 # Functions: Install, remove, update, upgrade.
 # Future functions: fetch, find, info.
-shoppeinstaller() {
-	echo "$infoPrefix Searching on shoppe repos..."
-}
 
-install() {
-	if [ -z "$*" ]; then echo -e "$errorPrefix Nothing to install!"; exit 2; fi
+pinstall() {
+	if [ -z "$packages" ]; then echo -e "$errorPrefix Nothing to install!"; exit 2; fi
 	for pm in $installed; do
 		echo -e "$infoPrefix Using $pm..."
 		case $pm in
-			apt|apt-get|yum|dnf) sudo $pm install $* && success;;
-			pkg) $pm install $* && success;;
-			pacman) sudo $pm -S $* && success;;
-			yaourt|yay) $pm -S $* && success;;
-			apk) sudo $pm add $* && success;;
+			apt|apt-get|yum|dnf) sudo $pm install $packages $switches && success;;
+			pkg) $pm install $packages $switches && success;;
+			pacman) sudo $pm -S $packages $switches && success;;
+			yaourt|yay) $pm -S $packages $switches && success;;
+			apk) sudo $pm add $packages $switches && success;;
 		esac
 		echo -e "$warnPrefix $pm failed."
 	done
-	shoppeinstaller
+	echo -e "$infoPrefix Searching on shoppe repos..."
+	while IFS="" read -r repo || [ -n "$repo" ]; do
+		case $repo in
+			GithubRepo=*) curl -i https://github.com/$repo/master/$arch/ && echo "Found package in repository.";;
+		esac
+	done < $repofile
 	echo -e "$errorPrefix Failed to install. Check your spelling."
 }
 
-remove() {
-	if [ -z "$*" ]; then echo -e "$errorPrefix Nothing to remove!"; exit 2; fi
+premove() {
+	if [ -z "$packages" ]; then echo -e "$errorPrefix Nothing to remove!"; exit 2; fi
 	for pm in $installed; do
 		echo -e "$infoPrefix Using $pm..."
 		case $pm in
-			apt|apt-get|yum|dnf) sudo $pm remove $* && success;;
-			pkg) $pm remove $* && success;;
-			pacman) sudo $pm -R $* && success;;
-			yaourt|yay) $pm -R $* && success;;
-			apk) sudo $pm del $* && success;;
+			apt|apt-get|yum|dnf) sudo $pm remove $packages $switches && success;;
+			pkg) $pm remove $packages $switches && success;;
+			pacman) sudo $pm -R $packages $switches && success;;
+			yaourt|yay) $pm -R $packages $switches && success;;
+			apk) sudo $pm del $packages $switches && success;;
 		esac
 		echo -e "$warnPrefix $pm failed."
 	done
 	echo -e "$errorPrefix Failed to remove. Check your spelling."
 }
 
-update() {
+pupdate() {
 	for pm in $installed; do
 		echo -e "$infoPrefix Using $pm..."
 		case $pm in
-			apt|apt-get|yum|dnf|apk) sudo $pm update $* && success;;
-			pkg) $pm update $* && success;;
+			apt|apt-get|yum|dnf|apk) sudo $pm update $packages $switches && success;;
+			pkg) $pm update $packages $switches && success;;
 			pacman) sudo $pm -Sy && success;;
 			yaourt|yay) $pm -Sy && success;;
-			# Pacman and AUR helpers don't accept custom commands because that would allow them to install packages with -Sy, which is not reccomended.
 		esac
 		echo -e "$warnPrefix $pm failed."
 	done
@@ -115,14 +131,14 @@ update() {
 }
 
 
-upgrade() {
+pupgrade() {
 	for pm in $installed; do
 		echo -e "$infoPrefix Using $pm..."
 		case $pm in
-			apt|apt-get|yum|dnf|apk) sudo $pm upgrade $* && success;;
-			pkg) $pm upgrade $* && success;;
-			pacman) sudo $pm -Syu $* && success;;
-			yaourt|yay) $pm -Syu $* && success;;
+			apt|apt-get|yum|dnf|apk) sudo $pm upgrade $packages $switches && success;;
+			pkg) $pm upgrade $packages $switches && success;;
+			pacman) sudo $pm -Syu $packages $switches && success;;
+			yaourt|yay) $pm -Syu $packages $switches && success;;
 		esac
 		echo -e "$warnPrefix $pm failed."
 	done
@@ -130,4 +146,20 @@ upgrade() {
 }
 
 # Parse options.
-$*
+for parse in $*; do
+	case $parse in
+		'install') command="install";;
+		'remove') command="remove";;
+		'update') command="update";;
+		'upgrade') command="upgrade";;
+		-*) switches="$switches $parse";;
+#		+*) shoppeswitches="$shoppeswitches $parse";;
+		*) packages="$packages $parse";;
+	esac
+done
+command=$(echo "$command" | sed -e 's/^[ \t]*//')
+packages=$(echo "$packages" | sed -e 's/^[ \t]*//')
+switches=$(echo "$switches" | sed -e 's/^[ \t]*//')
+
+# Execute required command
+p$command
