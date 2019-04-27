@@ -1,8 +1,9 @@
 #!/bin/bash
 
 # shoppe by knuxify
-version="build 2019-04-26"
+version="0.1"
 debug=true
+arch="x86_64"
 
 # Colors
 color() {
@@ -51,10 +52,9 @@ done < $configfile
 # TODO package managers
 unsupportedManagers="emerge nix-env"
 # emerge - Gentoo would require searching for the right repo for the package, and not following that would cause false failures.
-# nix-env - I can't figure out how to install a package and I'm certainly not installing nixOS just to find out.
 
 # Detect currently installed package managers
-supportedManagers="pkg apt apt-get yum dnf pacman yaourt pacaur yay apk"
+supportedManagers="pkg apt apt-get yum dnf pacman yaourt pacaur yay apk eopkg zypper"
 
 for pm in $supportedManagers; do
 	if command -v $pm &>/dev/null; then
@@ -70,9 +70,20 @@ for pm in $unsupportedManagers; do
 	fi
 done
 
+# Helper functions.
+
 success() {
-	echo "$infoPrefix Success."
-	exit 0
+	echo "$infoPrefix Success!"
+	if [ -z "$name" ]; then exit 0; else let success++; fi
+}
+
+# For shoppepkg
+getpkg() {
+	case $sourcetype in
+		git) mkdir $name; git clone $source $name;;
+		git-tag) mkdir $name; git clone --branch $tag $source $name;;
+		compressed) mkdir $name; cd $name; wget $source; tar xzf *; cd ..;;
+	esac
 }
 
 # Functions: Install, remove, update, upgrade.
@@ -83,7 +94,7 @@ pinstall() {
 	for pm in $installed; do
 		echo -e "$infoPrefix Using $pm..."
 		case $pm in
-			apt|apt-get|yum|dnf) sudo $pm install $packages $switches && success;;
+			apt|apt-get|yum|dnf|eopkg) sudo $pm install $packages $switches && success;;
 			pkg) $pm install $packages $switches && success;;
 			pacman) sudo $pm -S $packages $switches && success;;
 			yaourt|yay) $pm -S $packages $switches && success;;
@@ -92,12 +103,72 @@ pinstall() {
 		echo -e "$warnPrefix $pm failed."
 	done
 	echo -e "$infoPrefix Searching on shoppe repos..."
-	while IFS="" read -r repo || [ -n "$repo" ]; do
-		case $repo in
-			GithubRepo=*) curl -i https://github.com/$repo/master/$arch/ && echo "Found package in repository.";;
-		esac
-	done < $repofile
-	echo -e "$errorPrefix Failed to install. Check your spelling."
+	for package in $packages; do
+		while IFS="" read -r repo || [ -n "$repo" ]; do
+			case $repo in
+				GithubRepo=*) response="$(curl --write-out %{http_code} --silent --output /dev/null https://raw.githubusercontent.com/${repo/GithubRepo=/}/master/$arch/$package/shoppepkg)"; if [ "$response" = "200" ]; then echo -e "$infoPrefix Found $package in repository ${repo/GithubRepo=/}."; toshoppe="$toshoppe $package"; tsrepos="$tsrepos $repo"; tsarch="$tsarch all"; fi;;
+			esac
+		done < $repofile
+		toshoppe=$(echo "$toshoppe" | sed -e 's/^[ \t]*//')
+		if [ -z "$toshoppe" ]; then
+			while IFS="" read -r repo || [ -n "$repo" ]; do
+				case $repo in
+					GithubRepo=*) response="$(curl --write-out %{http_code} --silent --output /dev/null https://raw.githubusercontent.com/${repo/GithubRepo=/}/master/all/$package/shoppepkg)"; if [ "$response" = "200" ]; then echo -e "$infoPrefix Found $package in repository ${repo/GithubRepo=/}."; toshoppe="$toshoppe $package"; tsrepos="$tsrepos $repo"; tsarch="$tsarch all"; fi;;
+				esac
+			done < $repofile
+		fi
+	done
+	toshoppe=$(echo "$toshoppe" | sed -e 's/^[ \t]*//')
+	tsrepos=$(echo "$tsrepos" | sed -e 's/^[ \t]*//')
+	tsarch=$(echo "$tsarch" | sed -e 's/^[ \t]*//')
+	if [ -z "$toshoppe" ]; then
+		echo -e "$errorPrefix Failed to install some packages. Double check your spelling."
+		exit 1
+	else
+		currentpack=0
+		success=0
+		for package in $toshoppe; do
+			if [ -e $HOME/.config/shoppe/tmp ]; then rm -rf ~/.config/shoppe/tmp; fi
+			mkdir ~/.config/shoppe/tmp
+			echo -e "$infoPrefix Installing $package..."
+			let currentpack++
+			echo -e "$infoPrefix Fetching package..."
+			currentrepo=1
+			for repo in $tsrepos; do
+				if ! [ "$currentrepo" -eq "$currentpack" ]; then
+					let currentrepo++
+				else
+					getrepo="$repo"
+				fi
+			done
+			currentarch=1
+			for archt in $tsarch; do
+				if ! [ "$currentarch" -eq "$currentpack" ]; then
+					let currentarch++
+				else
+					getarch="$archt"
+				fi
+			done
+			case $getrepo in
+				GithubRepo=*) wget -q https://raw.githubusercontent.com/"${getrepo/GithubRepo=/}"/master/$getarch/$package/shoppepkg -O ~/.config/shoppe/tmp/shoppepkg;;
+			esac
+			cd ~/.config/shoppe/tmp
+			source shoppepkg
+			if type -t shoppebuild &>/dev/null; then
+				echo -e "$infoPrefix Buidling..."
+				shoppebuild
+			fi
+			echo -e "$infoPrefix Installing..."
+			shoppeinstall
+		done
+	fi
+	if ! [ "$success" = "$currentpack" ]; then
+		echo -e "$errorPrefix Failed to install some packages. Double check your spelling.."
+		exit 1
+	else
+		echo -e "$infoPrefix Installed succesfully."
+		exit 0
+	fi
 }
 
 premove() {
@@ -105,7 +176,7 @@ premove() {
 	for pm in $installed; do
 		echo -e "$infoPrefix Using $pm..."
 		case $pm in
-			apt|apt-get|yum|dnf) sudo $pm remove $packages $switches && success;;
+			apt|apt-get|yum|dnf|eopkg) sudo $pm remove $packages $switches && success;;
 			pkg) $pm remove $packages $switches && success;;
 			pacman) sudo $pm -R $packages $switches && success;;
 			yaourt|yay) $pm -R $packages $switches && success;;
@@ -120,10 +191,10 @@ pupdate() {
 	for pm in $installed; do
 		echo -e "$infoPrefix Using $pm..."
 		case $pm in
-			apt|apt-get|yum|dnf|apk) sudo $pm update $packages $switches && success;;
-			pkg) $pm update $packages $switches && success;;
-			pacman) sudo $pm -Sy && success;;
-			yaourt|yay) $pm -Sy && success;;
+			apt|apt-get|yum|dnf|eopkg|apk) sudo $pm update $switches && success;;
+			pkg) $pm update $switches && success;;
+			pacman) sudo $pm -Sy $switches && success;;
+			yaourt|yay) $pm -Sy $switches && success;;
 		esac
 		echo -e "$warnPrefix $pm failed."
 	done
@@ -135,7 +206,7 @@ pupgrade() {
 	for pm in $installed; do
 		echo -e "$infoPrefix Using $pm..."
 		case $pm in
-			apt|apt-get|yum|dnf|apk) sudo $pm upgrade $packages $switches && success;;
+			apt|apt-get|yum|dnf|eopkg|apk) sudo $pm upgrade $packages $switches && success;;
 			pkg) $pm upgrade $packages $switches && success;;
 			pacman) sudo $pm -Syu $packages $switches && success;;
 			yaourt|yay) $pm -Syu $packages $switches && success;;
@@ -152,6 +223,9 @@ for parse in $*; do
 		'remove') command="remove";;
 		'update') command="update";;
 		'upgrade') command="upgrade";;
+#		'fetch') command="fetch";;
+#		'find') command="find";;
+#		'info') command="info";;
 		-*) switches="$switches $parse";;
 #		+*) shoppeswitches="$shoppeswitches $parse";;
 		*) packages="$packages $parse";;
@@ -160,6 +234,6 @@ done
 command=$(echo "$command" | sed -e 's/^[ \t]*//')
 packages=$(echo "$packages" | sed -e 's/^[ \t]*//')
 switches=$(echo "$switches" | sed -e 's/^[ \t]*//')
-
+debugprint "$command $packages $switches"
 # Execute required command
 p$command
