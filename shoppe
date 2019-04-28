@@ -110,13 +110,11 @@ pinstall() {
 			esac
 		done < $repofile
 		toshoppe=$(echo "$toshoppe" | sed -e 's/^[ \t]*//')
-		if [ -z "$toshoppe" ]; then
-			while IFS="" read -r repo || [ -n "$repo" ]; do
-				case $repo in
-					GithubRepo=*) response="$(curl --write-out %{http_code} --silent --output /dev/null https://raw.githubusercontent.com/${repo/GithubRepo=/}/master/all/$package/shoppepkg)"; if [ "$response" = "200" ]; then echo -e "$infoPrefix Found $package in repository ${repo/GithubRepo=/}."; toshoppe="$toshoppe $package"; tsrepos="$tsrepos $repo"; tsarch="$tsarch all"; fi;;
-				esac
-			done < $repofile
-		fi
+		while IFS="" read -r repo || [ -n "$repo" ]; do
+			case $repo in
+				GithubRepo=*) response="$(curl --write-out %{http_code} --silent --output /dev/null https://raw.githubusercontent.com/${repo/GithubRepo=/}/master/all/$package/shoppepkg)"; if [ "$response" = "200" ]; then echo -e "$infoPrefix Found $package in repository ${repo/GithubRepo=/}."; toshoppe="$toshoppe $package"; tsrepos="$tsrepos $repo"; tsarch="$tsarch all"; fi;;
+			esac
+		done < $repofile
 	done
 	toshoppe=$(echo "$toshoppe" | sed -e 's/^[ \t]*//')
 	tsrepos=$(echo "$tsrepos" | sed -e 's/^[ \t]*//')
@@ -234,6 +232,6 @@ done
 command=$(echo "$command" | sed -e 's/^[ \t]*//')
 packages=$(echo "$packages" | sed -e 's/^[ \t]*//')
 switches=$(echo "$switches" | sed -e 's/^[ \t]*//')
-debugprint "$command $packages $switches"
+debugprint "$command $packages [$switches]"
 # Execute required command
 p$command
