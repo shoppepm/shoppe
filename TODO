@@ -1,5 +1,5 @@
-- [!!!] Fix potential false successes on missing packages (requires more testing) 
 - [!!!] Add removal and upgrades
 - [!!] Implement fallback sources
 - [!] Add planned functions (possibly after first release)
 - [!] Make AUR helpers remove pacman from available pms
+- [!] Fix potential false successes on missing packages (requires more testing) 

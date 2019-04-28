@@ -52,7 +52,6 @@ done < "$configfile"
 
 # TODO package managers
 unsupportedManagers="emerge nix-env"
-# emerge - Gentoo would require searching for the right repo for the package, and not following that would cause false failures.
 
 # Detect currently installed package managers
 supportedManagers="pkg apt apt-get yum dnf pacman yaourt pacaur yay apk eopkg zypper"
@@ -81,7 +80,7 @@ success() {
 yesno() {
 	choice=null
 	until [ "$choice" = "y" ] || [ "$choice" = "Y" ] || [ "$choice" = "n" ] || [ "$choice" = "N" ]; do
-		read -ren1 choice &>/dev/null
+		read -ren1 choice
 		if [ -z "$choice" ]; then choice="$1"; fi
 	done
 	if [ "$choice" = "Y" ] || [ "$choice" = "y" ]; then choice="yes"; else choice="no"; fi
@@ -177,6 +176,7 @@ pinstall() {
 			fi
 			echo -e "$infoPrefix Installing..."
 			shoppeinstall
+			sudo cp -rf ~/.config/shoppe/tmp/content/* /
 			if [ "$currentsuccess" = "1" ] && ! [ "$alreadyinstalled" = "true" ]; then
 				echo "$name" >> $packagefile
 			fi
@@ -203,6 +203,15 @@ premove() {
 			apk) sudo "$pm" del $packages $switches && success;;
 		esac
 		echo -e "$warnPrefix $pm failed."
+	done
+	for package in $packages; do
+		if grep "$package" "$packagefile" &>/dev/null; then
+			echo -e "$infoPrefix Removing package $package..."
+			toremove="$toremove $package"
+		fi
+		echo "$warnPrefix REMOVAL IS NOT IMPLEMENTED YET. This will only remove the package from the installed packages list."
+		grep -v "$package" "$packagefile" > "$packagefile"-tmp
+		mv -f "$packagefile"-tmp "$packagefile"
 	done
 	echo -e "$errorPrefix Failed to remove. Check your spelling."
 }
