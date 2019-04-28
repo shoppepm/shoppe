@@ -1,5 +1,5 @@
 #!/bin/bash
-
+# shellcheck disable=SC2219,SC2001,SC2164,SC2086
 # shoppe by knuxify
 version="0.1"
 debug=true
@@ -32,22 +32,22 @@ debugprint() {
 debugprint "shoppe version $version"
 
 # Don't run shoppe as root!
-if [ "$EUID" -eq 0 ]; then echo -e "$errorprefix Don't run shoppe as root!"; exit 4; fi
+if [ "$EUID" -eq 0 ]; then echo -e "$errorPrefix Don't run shoppe as root!"; exit 4; fi
 
 repofile="$HOME/.config/shoppe/repos"
 configfile="$HOME/.config/shoppe/config"
 
 # Create shoppe files
 if ! [ -e "$HOME/.config/shoppe" ]; then
-	mkdir $HOME/.config/shoppe
-	touch $HOME/.config/shoppe/config
-	echo "GithubRepo=knuxify/shoppe-repos" > $repofile
+	mkdir "$HOME"/.config/shoppe
+	touch "$HOME"/.config/shoppe/config
+	echo "GithubRepo=knuxify/shoppe-repos" > "$repofile"
 fi
 
 # Load shoppe config
 while IFS="" read -r configline || [ -n "$configline" ]; do
 	echo "TODO"
-done < $configfile
+done < "$configfile"
 
 # TODO package managers
 unsupportedManagers="emerge nix-env"
@@ -57,14 +57,14 @@ unsupportedManagers="emerge nix-env"
 supportedManagers="pkg apt apt-get yum dnf pacman yaourt pacaur yay apk eopkg zypper"
 
 for pm in $supportedManagers; do
-	if command -v $pm &>/dev/null; then
+	if command -v "$pm" &>/dev/null; then
 		installed="$installed $pm"
 		debugprint "Found $pm."
 	fi
 done
 
 for pm in $unsupportedManagers; do
-	if command -v $pm &>/dev/null; then
+	if command -v "$pm" &>/dev/null; then
 		echo -e "$warnPrefix Detected a known but unsupported package manager: $pm."
 		echo -e "$warnPrefix It might be added in a later update."
 	fi
@@ -74,15 +74,17 @@ done
 
 success() {
 	echo "$infoPrefix Success!"
+	# shellcheck disable=SC2154
 	if [ -z "$name" ]; then exit 0; else let success++; fi
 }
 
 # For shoppepkg
 getpkg() {
+	# shellcheck disable=SC2154
 	case $sourcetype in
-		git) mkdir $name; git clone $source $name;;
-		git-tag) mkdir $name; git clone --branch $tag $source $name;;
-		compressed) mkdir $name; cd $name; wget $source; tar xzf *; cd ..;;
+		git) mkdir "$name"; git clone "$source" "$name";;
+		git-tag) mkdir "$name"; git clone --branch "$tag" "$source" "$name";;
+		compressed) mkdir "$name"; cd "$name"; wget "$source"; tar xzf ./*; cd ..;;
 	esac
 }
 
@@ -94,27 +96,29 @@ pinstall() {
 	for pm in $installed; do
 		echo -e "$infoPrefix Using $pm..."
 		case $pm in
-			apt|apt-get|yum|dnf|eopkg|zypper) sudo $pm install $packages $switches && success;;
-			pkg) $pm install $packages $switches && success;;
-			pacman) sudo $pm -S $packages $switches && success;;
-			yaourt|yay) $pm -S $packages $switches && success;;
-			apk) sudo $pm add $packages $switches && success;;
+			apt|apt-get|yum|dnf|eopkg|zypper) sudo "$pm" install $packages $switches && success;;
+			pkg) "$pm" install $packages $switches && success;;
+			pacman) sudo "$pm" -S $packages $switches && success;;
+			yaourt|yay) "$pm" -S $packages $switches && success;;
+			apk) sudo "$pm" add $packages $switches && success;;
 		esac
 		echo -e "$warnPrefix $pm failed."
 	done
 	echo -e "$infoPrefix Searching on shoppe repos..."
 	for package in $packages; do
 		while IFS="" read -r repo || [ -n "$repo" ]; do
+			# shellcheck disable=SC1083,SC2086
 			case $repo in
 				GithubRepo=*) response="$(curl --write-out %{http_code} --silent --output /dev/null https://raw.githubusercontent.com/${repo/GithubRepo=/}/master/$arch/$package/shoppepkg)"; if [ "$response" = "200" ]; then echo -e "$infoPrefix Found $package in repository ${repo/GithubRepo=/}."; toshoppe="$toshoppe $package"; tsrepos="$tsrepos $repo"; tsarch="$tsarch all"; fi;;
 			esac
-		done < $repofile
+		done < "$repofile"
 		toshoppe=$(echo "$toshoppe" | sed -e 's/^[ \t]*//')
 		while IFS="" read -r repo || [ -n "$repo" ]; do
+			# shellcheck disable=SC1083,SC2086
 			case $repo in
 				GithubRepo=*) response="$(curl --write-out %{http_code} --silent --output /dev/null https://raw.githubusercontent.com/${repo/GithubRepo=/}/master/all/$package/shoppepkg)"; if [ "$response" = "200" ]; then echo -e "$infoPrefix Found $package in repository ${repo/GithubRepo=/}."; toshoppe="$toshoppe $package"; tsrepos="$tsrepos $repo"; tsarch="$tsarch all"; fi;;
 			esac
-		done < $repofile
+		done < "$repofile"
 	done
 	toshoppe=$(echo "$toshoppe" | sed -e 's/^[ \t]*//')
 	tsrepos=$(echo "$tsrepos" | sed -e 's/^[ \t]*//')
@@ -126,7 +130,7 @@ pinstall() {
 		currentpack=0
 		success=0
 		for package in $toshoppe; do
-			if [ -e $HOME/.config/shoppe/tmp ]; then rm -rf ~/.config/shoppe/tmp; fi
+			if [ -e "$HOME"/.config/shoppe/tmp ]; then rm -rf ~/.config/shoppe/tmp; fi
 			mkdir ~/.config/shoppe/tmp
 			echo -e "$infoPrefix Installing $package..."
 			let currentpack++
@@ -148,7 +152,7 @@ pinstall() {
 				fi
 			done
 			case $getrepo in
-				GithubRepo=*) wget -q https://raw.githubusercontent.com/"${getrepo/GithubRepo=/}"/master/$getarch/$package/shoppepkg -O ~/.config/shoppe/tmp/shoppepkg;;
+				GithubRepo=*) wget -q https://raw.githubusercontent.com/"${getrepo/GithubRepo=/}"/master/"$getarch"/"$package"/shoppepkg -O ~/.config/shoppe/tmp/shoppepkg;;
 			esac
 			cd ~/.config/shoppe/tmp
 			source shoppepkg
@@ -174,11 +178,11 @@ premove() {
 	for pm in $installed; do
 		echo -e "$infoPrefix Using $pm..."
 		case $pm in
-			apt|apt-get|yum|dnf|eopkg|zypper) sudo $pm remove $packages $switches && success;;
-			pkg) $pm remove $packages $switches && success;;
-			pacman) sudo $pm -R $packages $switches && success;;
-			yaourt|yay) $pm -R $packages $switches && success;;
-			apk) sudo $pm del $packages $switches && success;;
+			apt|apt-get|yum|dnf|eopkg|zypper) sudo "$pm" remove $packages $switches && success;;
+			pkg) "$pm" remove $packages $switches && success;;
+			pacman) sudo "$pm" -R $packages $switches && success;;
+			yaourt|yay) "$pm" -R $packages $switches && success;;
+			apk) sudo "$pm" del $packages $switches && success;;
 		esac
 		echo -e "$warnPrefix $pm failed."
 	done
@@ -189,10 +193,10 @@ pupdate() {
 	for pm in $installed; do
 		echo -e "$infoPrefix Using $pm..."
 		case $pm in
-			apt|apt-get|yum|dnf|eopkg|zypper|apk) sudo $pm update $switches && success;;
-			pkg) $pm update $switches && success;;
-			pacman) sudo $pm -Sy $switches && success;;
-			yaourt|yay) $pm -Sy $switches && success;;
+			apt|apt-get|yum|dnf|eopkg|zypper|apk) sudo "$pm" update "$switches" && success;;
+			pkg) "$pm" update "$switches" && success;;
+			pacman) sudo "$pm" -Sy "$switches" && success;;
+			yaourt|yay) "$pm" -Sy "$switches" && success;;
 		esac
 		echo -e "$warnPrefix $pm failed."
 	done
@@ -204,10 +208,10 @@ pupgrade() {
 	for pm in $installed; do
 		echo -e "$infoPrefix Using $pm..."
 		case $pm in
-			apt|apt-get|yum|dnf|eopkg|zypper|apk) sudo $pm upgrade $packages $switches && success;;
-			pkg) $pm upgrade $packages $switches && success;;
-			pacman) sudo $pm -Syu $packages $switches && success;;
-			yaourt|yay) $pm -Syu $packages $switches && success;;
+			apt|apt-get|yum|dnf|eopkg|zypper|apk) sudo "$pm" upgrade $packages $switches && success;;
+			pkg) "$pm" upgrade $packages $switches && success;;
+			pacman) sudo "$pm" -Syu $packages $switches && success;;
+			yaourt|yay) "$pm" -Syu $packages $switches && success;;
 		esac
 		echo -e "$warnPrefix $pm failed."
 	done
@@ -215,7 +219,7 @@ pupgrade() {
 }
 
 # Parse options.
-for parse in $*; do
+for parse in "$@"; do
 	case $parse in
 		'install') command="install";;
 		'remove') command="remove";;
@@ -234,4 +238,5 @@ packages=$(echo "$packages" | sed -e 's/^[ \t]*//')
 switches=$(echo "$switches" | sed -e 's/^[ \t]*//')
 debugprint "$command $packages [$switches]"
 # Execute required command
+#shellcheck disable=SC2086
 p$command
