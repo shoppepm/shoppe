@@ -30,12 +30,13 @@ debugprint() {
 }
 
 debugprint "shoppe version $version"
-
+echo -e "$warnPrefix shoppe is work-in-progress alpha software! Feel free to help out by submitting issues and adding your own code. See TODO for things to do."
 # Don't run shoppe as root!
 if [ "$EUID" -eq 0 ]; then echo -e "$errorPrefix Don't run shoppe as root!"; exit 4; fi
 
 repofile="$HOME/.config/shoppe/repos"
 configfile="$HOME/.config/shoppe/config"
+packagefile="$HOME/.config/shoppe/packages"
 
 # Create shoppe files
 if ! [ -e "$HOME/.config/shoppe" ]; then
@@ -71,11 +72,19 @@ for pm in $unsupportedManagers; do
 done
 
 # Helper functions.
-
 success() {
 	echo "$infoPrefix Success!"
 	# shellcheck disable=SC2154
-	if [ -z "$name" ]; then exit 0; else let success++; fi
+	if [ -z "$name" ]; then exit 0; else let success++; currentsuccess="1"; fi
+}
+
+yesno() {
+	choice=null
+	until [ "$choice" = "y" ] || [ "$choice" = "Y" ] || [ "$choice" = "n" ] || [ "$choice" = "N" ]; do
+		read -ren1 choice &>/dev/null
+		if [ -z "$choice" ]; then choice="$1"; fi
+	done
+	if [ "$choice" = "Y" ] || [ "$choice" = "y" ]; then choice="yes"; else choice="no"; fi
 }
 
 # For shoppepkg
@@ -106,6 +115,11 @@ pinstall() {
 	done
 	echo -e "$infoPrefix Searching on shoppe repos..."
 	for package in $packages; do
+		if grep "$package" "$packagefile" &>/dev/null; then
+			echo "$package is already installed! Install anyways? [y/N]"
+			yesno n
+			if [ "$choice" = "no" ]; then continue; else alreadyinstalled="true"; fi
+		fi
 		while IFS="" read -r repo || [ -n "$repo" ]; do
 			# shellcheck disable=SC1083,SC2086
 			case $repo in
@@ -129,6 +143,7 @@ pinstall() {
 	else
 		currentpack=0
 		success=0
+		currentsuccess=0
 		for package in $toshoppe; do
 			if [ -e "$HOME"/.config/shoppe/tmp ]; then rm -rf ~/.config/shoppe/tmp; fi
 			mkdir ~/.config/shoppe/tmp
@@ -162,6 +177,9 @@ pinstall() {
 			fi
 			echo -e "$infoPrefix Installing..."
 			shoppeinstall
+			if [ "$currentsuccess" = "1" ] && ! [ "$alreadyinstalled" = "true" ]; then
+				echo "$name" >> $packagefile
+			fi
 		done
 	fi
 	if ! [ "$success" = "$currentpack" ]; then
