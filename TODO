@@ -1,5 +1,8 @@
 - [!!!] Add removal and upgrades
+- [!!!] Add prebuilt package support
 - [!!] Implement fallback sources
+- [!!] Add local repos
+- [!] Make it possible to automatically install locally downloaded packages on some package managers
 - [!] Add planned functions (possibly after first release)
 - [!] Make AUR helpers remove pacman from available pms
 - [!] Fix potential false successes on missing packages (requires more testing) 
