@@ -34,21 +34,17 @@ echo -e "$warnPrefix shoppe is work-in-progress alpha software! Feel free to hel
 # Don't run shoppe as root!
 if [ "$EUID" -eq 0 ]; then echo -e "$errorPrefix Don't run shoppe as root!"; exit 4; fi
 
-repofile="$HOME/.config/shoppe/repos"
-configfile="$HOME/.config/shoppe/config"
-packagefile="$HOME/.config/shoppe/packages"
+configdir="$HOME/.config/shoppe"
+repofile="$configdir/repos"
+configfile="$configdir/config"
+packagefile="$configdir/packages"
+packinfodir="$configdir/packinfo"
+tmpdir="$configdir/tmp"
 
 # Create shoppe files
-if ! [ -e "$HOME/.config/shoppe" ]; then
-	mkdir "$HOME"/.config/shoppe
-	touch "$HOME"/.config/shoppe/config
-	echo "GithubRepo=knuxify/shoppe-repos" > "$repofile"
-fi
-
-# Load shoppe config
-while IFS="" read -r configline || [ -n "$configline" ]; do
-	echo "TODO"
-done < "$configfile"
+if ! [ -e "$configdir" ]; then mkdir -p "$configdir"; fi
+if ! [ -e "$repofile" ]; then echo "GithubRepo=knuxify/shoppe-repos" > "$repofile"; fi
+if ! [ -e "$packinfodir" ]; then mkdir "$packinfodir"; fi
 
 # TODO package managers
 unsupportedManagers="emerge nix-env"
@@ -144,8 +140,8 @@ pinstall() {
 		success=0
 		currentsuccess=0
 		for package in $toshoppe; do
-			if [ -e "$HOME"/.config/shoppe/tmp ]; then rm -rf ~/.config/shoppe/tmp; fi
-			mkdir ~/.config/shoppe/tmp
+			if [ -e "$tmpdir" ]; then rm -rf "$tmpdir"; fi
+			mkdir "$tmpdir"
 			echo -e "$infoPrefix Installing $package..."
 			let currentpack++
 			echo -e "$infoPrefix Fetching package..."
@@ -166,9 +162,9 @@ pinstall() {
 				fi
 			done
 			case $getrepo in
-				GithubRepo=*) wget -q https://raw.githubusercontent.com/"${getrepo/GithubRepo=/}"/master/"$getarch"/"$package"/shoppepkg -O ~/.config/shoppe/tmp/shoppepkg;;
+				GithubRepo=*) wget -q https://raw.githubusercontent.com/"${getrepo/GithubRepo=/}"/master/"$getarch"/"$package"/shoppepkg -O "$tmpdir"/shoppepkg;;
 			esac
-			cd ~/.config/shoppe/tmp
+			cd "$tmpdir"
 			source shoppepkg
 			if type -t shoppebuild &>/dev/null; then
 				echo -e "$infoPrefix Buidling..."
@@ -176,14 +172,16 @@ pinstall() {
 			fi
 			echo -e "$infoPrefix Installing..."
 			shoppeinstall
-			sudo cp -rf ~/.config/shoppe/tmp/content/* /
+			sudo cp -rf "$tmpdir"/content/* /
+			cd "$tmpdir/content"
+			find ./ -type f | cut -c2-  > $packinfodir/$name
 			if [ "$currentsuccess" = "1" ] && ! [ "$alreadyinstalled" = "true" ]; then
 				echo "$name" >> $packagefile
 			fi
 		done
 	fi
 	if ! [ "$success" = "$currentpack" ]; then
-		echo -e "$errorPrefix Failed to install some packages. Double check your spelling.."
+		echo -e "$errorPrefix Failed to install some packages. Double check your spelling."
 		exit 1
 	else
 		echo -e "$infoPrefix Installed succesfully."
@@ -204,16 +202,27 @@ premove() {
 		esac
 		echo -e "$warnPrefix $pm failed."
 	done
+	currentpack="0"
 	for package in $packages; do
+		let currentpack++
 		if grep "$package" "$packagefile" &>/dev/null; then
 			echo -e "$infoPrefix Removing package $package..."
-			toremove="$toremove $package"
+			xargs sudo rm -f < "$packinfodir/$package"
+			grep -v "$package" "$packagefile" > "$packagefile"-tmp
+			mv -f "$packagefile"-tmp "$packagefile"
+			rm "$packinfodir/$package"
+			name="$package"
+			success
+			name=""
 		fi
-		echo "$warnPrefix REMOVAL IS NOT IMPLEMENTED YET. This will only remove the package from the installed packages list."
-		grep -v "$package" "$packagefile" > "$packagefile"-tmp
-		mv -f "$packagefile"-tmp "$packagefile"
 	done
-	echo -e "$errorPrefix Failed to remove. Check your spelling."
+	if ! [ "$success" = "$currentpack" ]; then
+		echo -e "$errorPrefix Failed to remove some packages. Double check your spelling."
+		exit 1
+	else
+		echo -e "$infoPrefix Removed succesfully."
+		exit 0
+	fi
 }
 
 pupdate() {
