@@ -1,5 +1,6 @@
 #!/bin/bash
-# shellcheck disable=SC2219,SC2001,SC2164,SC2086
+# shellcheck disable=SC2219,SC2001,SC2164,SC2086,2181
+
 # shoppe by knuxify
 version="0.1"
 debug=true
@@ -182,6 +183,7 @@ pinstall() {
 			cd "$tmpdir/content"
 			find ./ -type f | cut -c2-  > $packinfodir/$name
 			if [ "$currentsuccess" = "1" ] && ! [ "$alreadyinstalled" = "true" ]; then
+				# shellcheck disable=SC2154
 				echo "$name $numericver" >> $packagefile
 			fi
 		done
@@ -244,16 +246,10 @@ pupgrade() {
 	done
 	while IFS="" read -r package || [ -n "$packages" ]; do
 		currentrepo=1
-		for repo in $tsrepos; do
-			if ! [ "$currentrepo" -eq "$currentpack" ]; then
-				let currentrepo++
-			else
-				getrepo="$repo"
-			fi
-		done
+		rm -rf "$tmpdir"
 		case $getrepo in
-			GithubRepo=*) wget -q https://raw.githubusercontent.com/"${getrepo/GithubRepo=/}"/master/"$getarch"/"$package"/shoppepkg -O "$tmpdir"/shoppepkg;;
-			Local=*) cp "${repo/Local=/}/$getarch/$package/shoppepkg";;
+			GithubRepo=*) wget -q https://raw.githubusercontent.com/"${getrepo/GithubRepo=/}"/master/"$arch"/"$package"/shoppepkg -O "$tmpdir"/shoppepkg; ! [ "$?" = "0" ] && wget -q https://raw.githubusercontent.com/"${getrepo/GithubRepo=/}"/master/all/"$package"/shoppepkg -O "$tmpdir"/shoppepkg;;
+			Local=*) cp -f "${repo/Local=/}/$arch/$package/shoppepkg" "$tmpdir"/; ! [ "$?" = "0" ] && cp -f "${repo/Local=/}/all/$package/shoppepkg" "$tmpdir"/;;
 		esac
 		if [ "$(grep "$package" | sed "s/$package//g")" -lt "$(grep "$package" $tmpdir/shoppepkg | sed "s/$package//g")" ]; then
 			echo -e "$infoPrefix Upgrading $package..."
