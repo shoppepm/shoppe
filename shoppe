@@ -98,7 +98,7 @@ getpkg() {
 
 pinstall() {
 	if [ -z "$packages" ]; then echo -e "$errorPrefix Nothing to install!"; exit 2; fi
-	if ! [ "$1" = "up" ]; then
+	if ! [ "$skipfrontend" = "true" ]; then
 		for pm in $installed; do
 			echo -e "$infoPrefix Using $pm..."
 			case $pm in
@@ -198,7 +198,7 @@ pinstall() {
 
 premove() {
 	if [ -z "$packages" ]; then echo -e "$errorPrefix Nothing to remove!"; exit 2; fi
-	if ! [ "$1" = "up" ]; then
+	if ! [ "$skipfrontend" = "true" ]; then
 		for pm in $installed; do
 			echo -e "$infoPrefix Using $pm..."
 			case $pm in
@@ -234,25 +234,31 @@ premove() {
 }
 
 pupgrade() {
-	for pm in $installed; do
-		echo -e "$infoPrefix Using $pm..."
-		case $pm in
-			apt|apt-get|yum|dnf|eopkg|zypper|apk) sudo "$pm" upgrade $packages $switches && let success++;;
-			pkg) "$pm" upgrade $packages $switches && let success++;;
-			pacman) sudo "$pm" -Syu $packages $switches && let success++;;
-			yaourt|yay) "$pm" -Syu $packages $switches && let success++;;
-		esac
-		echo -e "$warnPrefix $pm failed."
-	done
+	if ! [ "$skipfrontend" = "true" ]; then
+		for pm in $installed; do
+			echo -e "$infoPrefix Using $pm..."
+			case $pm in
+				apt|apt-get|yum|dnf|eopkg|zypper|apk) sudo "$pm" upgrade $packages $switches && let success++;;
+				pkg) "$pm" upgrade $packages $switches && let success++;;
+				pacman) sudo "$pm" -Syu $packages $switches && let success++;;
+				yaourt|yay) "$pm" -Syu $packages $switches && let success++;;
+			esac
+			echo -e "$warnPrefix $pm failed."
+		done
+	fi
+	# shellcheck disable=2094
 	while IFS="" read -r package || [ -n "$packages" ]; do
 		currentrepo=1
 		rm -rf "$tmpdir"
-		case $getrepo in
-			GithubRepo=*) wget -q https://raw.githubusercontent.com/"${getrepo/GithubRepo=/}"/master/"$arch"/"$package"/shoppepkg -O "$tmpdir"/shoppepkg; ! [ "$?" = "0" ] && wget -q https://raw.githubusercontent.com/"${getrepo/GithubRepo=/}"/master/all/"$package"/shoppepkg -O "$tmpdir"/shoppepkg;;
-			Local=*) cp -f "${repo/Local=/}/$arch/$package/shoppepkg" "$tmpdir"/; ! [ "$?" = "0" ] && cp -f "${repo/Local=/}/all/$package/shoppepkg" "$tmpdir"/;;
-		esac
-		if [ "$(grep "$package" | sed "s/$package//g")" -lt "$(grep "$package" $tmpdir/shoppepkg | sed "s/$package//g")" ]; then
+		while IFS="" read -r repo; do
+			case $repo in
+				GithubRepo=*) wget -q https://raw.githubusercontent.com/"${getrepo/GithubRepo=/}"/master/"$arch"/"$package"/shoppepkg -O "$tmpdir"/shoppepkg; ! [ "$?" = "0" ] && wget -q https://raw.githubusercontent.com/"${getrepo/GithubRepo=/}"/master/all/"$package"/shoppepkg -O "$tmpdir"/shoppepkg;;
+				Local=*) cp -f "${repo/Local=/}/$arch/$package/shoppepkg" "$tmpdir"/; ! [ "$?" = "0" ] && cp -f "${repo/Local=/}/all/$package/shoppepkg" "$tmpdir"/;;
+			esac
+		done < $repofile
+		if [ "$(grep "$package" $packagefile | sed "s/$package//g")" -lt "$(grep "numericver=" $tmpdir/shoppepkg | sed "s/numericver=//g")" ]; then
 			echo -e "$infoPrefix Upgrading $package..."
+			skipfrontend="true"
 			packages="$package" premove up
 			packages="$package" pinstall up
 			echo -e "$infoPrefix Done!"
@@ -271,17 +277,21 @@ pupgrade() {
 }
 
 pupdate() {
-	for pm in $installed; do
-		echo -e "$infoPrefix Using $pm..."
-		case $pm in
-			apt|apt-get|yum|dnf|eopkg|zypper|apk) sudo "$pm" update "$switches" && success;;
-			pkg) "$pm" update "$switches" && success;;
-			pacman) sudo "$pm" -Sy "$switches" && success;;
-			yaourt|yay) "$pm" -Sy "$switches" && success;;
-		esac
-		echo -e "$warnPrefix $pm failed."
-	done
-	echo -e "$errorPrefix Repo update failed."
+	if ! [ "$skipfrontend" = "true" ]; then
+		for pm in $installed; do
+			echo -e "$infoPrefix Using $pm..."
+			case $pm in
+				apt|apt-get|yum|dnf|eopkg|zypper|apk) sudo "$pm" update "$switches" && success;;
+				pkg) "$pm" update "$switches" && success;;
+				pacman) sudo "$pm" -Sy "$switches" && success;;
+				yaourt|yay) "$pm" -Sy "$switches" && success;;
+			esac
+			echo -e "$warnPrefix $pm failed."
+		done
+		echo -e "$errorPrefix Repo update failed."
+	else
+		echo -e "$errorPrefix There is no need to update repositories in shoppe."
+	fi
 }
 
 # Parse options.
@@ -295,7 +305,7 @@ for parse in "$@"; do
 #		'find') command="find";;
 #		'info') command="info";;
 		-*) switches="$switches $parse";;
-#		+*) shoppeswitches="$shoppeswitches $parse";;
+		+*) shoppeswitches="$shoppeswitches $parse";;
 		*) packages="$packages $parse";;
 	esac
 done
@@ -303,6 +313,11 @@ command=$(echo "$command" | sed -e 's/^[ \t]*//')
 packages=$(echo "$packages" | sed -e 's/^[ \t]*//')
 switches=$(echo "$switches" | sed -e 's/^[ \t]*//')
 debugprint "$command $packages [$switches]"
+for switch in $shoppeswitches; do
+	case $switch in
+	"+skipfrontend") skipfrontend="true";;
+	esac
+done
 # Execute required command
 #shellcheck disable=SC2086
 p$command
