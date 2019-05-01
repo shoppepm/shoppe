@@ -97,17 +97,19 @@ getpkg() {
 
 pinstall() {
 	if [ -z "$packages" ]; then echo -e "$errorPrefix Nothing to install!"; exit 2; fi
-	for pm in $installed; do
-		echo -e "$infoPrefix Using $pm..."
-		case $pm in
-			apt|apt-get|yum|dnf|eopkg|zypper) sudo "$pm" install $packages $switches && success;;
-			pkg) "$pm" install $packages $switches && success;;
-			pacman) sudo "$pm" -S $packages $switches && success;;
-			yaourt|yay) "$pm" -S $packages $switches && success;;
-			apk) sudo "$pm" add $packages $switches && success;;
-		esac
-		echo -e "$warnPrefix $pm failed."
-	done
+	if ! [ "$1" = "up" ]; then
+		for pm in $installed; do
+			echo -e "$infoPrefix Using $pm..."
+			case $pm in
+				apt|apt-get|yum|dnf|eopkg|zypper) sudo "$pm" install $packages $switches && success;;
+				pkg) "$pm" install $packages $switches && success;;
+				pacman) sudo "$pm" -S $packages $switches && success;;
+				yaourt|yay) "$pm" -S $packages $switches && success;;
+				apk) sudo "$pm" add $packages $switches && success;;
+			esac
+			echo -e "$warnPrefix $pm failed."
+		done
+	fi
 	echo -e "$infoPrefix Searching on shoppe repos..."
 	for package in $packages; do
 		if grep "$package" "$packagefile" &>/dev/null; then
@@ -142,28 +144,30 @@ pinstall() {
 		for package in $toshoppe; do
 			if [ -e "$tmpdir" ]; then rm -rf "$tmpdir"; fi
 			mkdir "$tmpdir"
-			echo -e "$infoPrefix Installing $package..."
+			! [ "$1" = "up" ] && echo -e "$infoPrefix Installing $package..."
 			let currentpack++
-			echo -e "$infoPrefix Fetching package..."
-			currentrepo=1
-			for repo in $tsrepos; do
-				if ! [ "$currentrepo" -eq "$currentpack" ]; then
-					let currentrepo++
-				else
-					getrepo="$repo"
-				fi
-			done
-			currentarch=1
-			for archt in $tsarch; do
-				if ! [ "$currentarch" -eq "$currentpack" ]; then
-					let currentarch++
-				else
-					getarch="$archt"
-				fi
-			done
-			case $getrepo in
-				GithubRepo=*) wget -q https://raw.githubusercontent.com/"${getrepo/GithubRepo=/}"/master/"$getarch"/"$package"/shoppepkg -O "$tmpdir"/shoppepkg;;
-			esac
+			if ! [ "$1" = "up" ]; then
+				echo -e "$infoPrefix Fetching package..."
+				currentrepo=1
+				for repo in $tsrepos; do
+					if ! [ "$currentrepo" -eq "$currentpack" ]; then
+						let currentrepo++
+					else
+						getrepo="$repo"
+					fi
+				done
+				currentarch=1
+				for archt in $tsarch; do
+					if ! [ "$currentarch" -eq "$currentpack" ]; then
+						let currentarch++
+					else
+						getarch="$archt"
+					fi
+				done
+				case $getrepo in
+					GithubRepo=*) wget -q https://raw.githubusercontent.com/"${getrepo/GithubRepo=/}"/master/"$getarch"/"$package"/shoppepkg -O "$tmpdir"/shoppepkg;;
+				esac
+			fi
 			cd "$tmpdir"
 			source shoppepkg
 			if type -t shoppebuild &>/dev/null; then
@@ -176,7 +180,7 @@ pinstall() {
 			cd "$tmpdir/content"
 			find ./ -type f | cut -c2-  > $packinfodir/$name
 			if [ "$currentsuccess" = "1" ] && ! [ "$alreadyinstalled" = "true" ]; then
-				echo "$name" >> $packagefile
+				echo "$name $numericver" >> $packagefile
 			fi
 		done
 	fi
@@ -184,29 +188,30 @@ pinstall() {
 		echo -e "$errorPrefix Failed to install some packages. Double check your spelling."
 		exit 1
 	else
-		echo -e "$infoPrefix Installed succesfully."
-		exit 0
+		! [ "$1" = "up" ] && echo -e "$infoPrefix Installed succesfully." && exit 0
 	fi
 }
 
 premove() {
 	if [ -z "$packages" ]; then echo -e "$errorPrefix Nothing to remove!"; exit 2; fi
-	for pm in $installed; do
-		echo -e "$infoPrefix Using $pm..."
-		case $pm in
-			apt|apt-get|yum|dnf|eopkg|zypper) sudo "$pm" remove $packages $switches && success;;
-			pkg) "$pm" remove $packages $switches && success;;
-			pacman) sudo "$pm" -R $packages $switches && success;;
-			yaourt|yay) "$pm" -R $packages $switches && success;;
-			apk) sudo "$pm" del $packages $switches && success;;
-		esac
-		echo -e "$warnPrefix $pm failed."
-	done
+	if ! [ "$1" = "up" ]; then
+		for pm in $installed; do
+			echo -e "$infoPrefix Using $pm..."
+			case $pm in
+				apt|apt-get|yum|dnf|eopkg|zypper) sudo "$pm" remove $packages $switches && success;;
+				pkg) "$pm" remove $packages $switches && success;;
+				pacman) sudo "$pm" -R $packages $switches && success;;
+				yaourt|yay) "$pm" -R $packages $switches && success;;
+				apk) sudo "$pm" del $packages $switches && success;;
+			esac
+			echo -e "$warnPrefix $pm failed."
+		done
+	fi
 	currentpack="0"
 	for package in $packages; do
 		let currentpack++
 		if grep "$package" "$packagefile" &>/dev/null; then
-			echo -e "$infoPrefix Removing package $package..."
+			! [ "$1" = "up" ] && echo -e "$infoPrefix Removing package $package..."
 			xargs sudo rm -f < "$packinfodir/$package"
 			grep -v "$package" "$packagefile" > "$packagefile"-tmp
 			mv -f "$packagefile"-tmp "$packagefile"
@@ -220,8 +225,49 @@ premove() {
 		echo -e "$errorPrefix Failed to remove some packages. Double check your spelling."
 		exit 1
 	else
-		echo -e "$infoPrefix Removed succesfully."
+		! [ "$1" = "up" ] && echo -e "$infoPrefix Removed succesfully." && exit 0
+	fi
+}
+
+pupgrade() {
+	for pm in $installed; do
+		echo -e "$infoPrefix Using $pm..."
+		case $pm in
+			apt|apt-get|yum|dnf|eopkg|zypper|apk) sudo "$pm" upgrade $packages $switches && let success++;;
+			pkg) "$pm" upgrade $packages $switches && let success++;;
+			pacman) sudo "$pm" -Syu $packages $switches && let success++;;
+			yaourt|yay) "$pm" -Syu $packages $switches && let success++;;
+		esac
+		echo -e "$warnPrefix $pm failed."
+	done
+	while IFS="" read -r package || [ -n "$packages" ]; do
+		currentrepo=1
+		for repo in $tsrepos; do
+			if ! [ "$currentrepo" -eq "$currentpack" ]; then
+				let currentrepo++
+			else
+				getrepo="$repo"
+			fi
+		done
+		case $getrepo in
+			GithubRepo=*) wget -q https://raw.githubusercontent.com/"${getrepo/GithubRepo=/}"/master/"$getarch"/"$package"/shoppepkg -O "$tmpdir"/shoppepkg;;
+		esac
+		if [ "$(grep "$package" | sed "s/$package//g")" -lt "$(grep "$package" $tmpdir/shoppepkg | sed "s/$package//g")" ]; then
+			echo -e "$infoPrefix Upgrading $package..."
+			packages="$package" premove up
+			packages="$package" pinstall up
+			echo -e "$infoPrefix Done!"
+			name="$package"
+			success
+			name=""
+		fi
+	done < $packagefile
+	if [ "$success" = "$currentpack" ] || [ "$success" -gt "$currentpack" ]; then
+		echo -e "$infoPrefix Upgraded succesfully."
 		exit 0
+	else
+		echo -e "$errorPrefix Failed to upgrade some packages. Double check your spelling."
+		exit 1
 	fi
 }
 
@@ -237,21 +283,6 @@ pupdate() {
 		echo -e "$warnPrefix $pm failed."
 	done
 	echo -e "$errorPrefix Repo update failed."
-}
-
-
-pupgrade() {
-	for pm in $installed; do
-		echo -e "$infoPrefix Using $pm..."
-		case $pm in
-			apt|apt-get|yum|dnf|eopkg|zypper|apk) sudo "$pm" upgrade $packages $switches && success;;
-			pkg) "$pm" upgrade $packages $switches && success;;
-			pacman) sudo "$pm" -Syu $packages $switches && success;;
-			yaourt|yay) "$pm" -Syu $packages $switches && success;;
-		esac
-		echo -e "$warnPrefix $pm failed."
-	done
-	echo -e "$errorPrefix Upgrade failed."
 }
 
 # Parse options.
