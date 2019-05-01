@@ -121,6 +121,7 @@ pinstall() {
 			# shellcheck disable=SC1083,SC2086
 			case $repo in
 				GithubRepo=*) response="$(curl --write-out %{http_code} --silent --output /dev/null https://raw.githubusercontent.com/${repo/GithubRepo=/}/master/$arch/$package/shoppepkg)"; if [ "$response" = "200" ]; then echo -e "$infoPrefix Found $package in repository ${repo/GithubRepo=/}."; toshoppe="$toshoppe $package"; tsrepos="$tsrepos $repo"; tsarch="$tsarch all"; fi;;
+				Local=*) if [ -e "${repo/Local=/}/$arch/$package/shoppepkg" ] ; then echo -e "$infoPrefix Found $package in repository ${repo/Local=/}."; toshoppe="$toshoppe $package"; tsrepos="$tsrepos $repo"; tsarch="$tsarch all"; fi;;
 			esac
 		done < "$repofile"
 		toshoppe=$(echo "$toshoppe" | sed -e 's/^[ \t]*//')
@@ -128,6 +129,7 @@ pinstall() {
 			# shellcheck disable=SC1083,SC2086
 			case $repo in
 				GithubRepo=*) response="$(curl --write-out %{http_code} --silent --output /dev/null https://raw.githubusercontent.com/${repo/GithubRepo=/}/master/all/$package/shoppepkg)"; if [ "$response" = "200" ]; then echo -e "$infoPrefix Found $package in repository ${repo/GithubRepo=/}."; toshoppe="$toshoppe $package"; tsrepos="$tsrepos $repo"; tsarch="$tsarch all"; fi;;
+				Local=*) if [ -e "${repo/Local=/}/all/$package/shoppepkg" ] ; then echo -e "$infoPrefix Found $package in repository ${repo/Local=/}."; toshoppe="$toshoppe $package"; tsrepos="$tsrepos $repo"; tsarch="$tsarch all"; fi;;
 			esac
 		done < "$repofile"
 	done
@@ -251,6 +253,7 @@ pupgrade() {
 		done
 		case $getrepo in
 			GithubRepo=*) wget -q https://raw.githubusercontent.com/"${getrepo/GithubRepo=/}"/master/"$getarch"/"$package"/shoppepkg -O "$tmpdir"/shoppepkg;;
+			Local=*) cp "${repo/Local=/}/$getarch/$package/shoppepkg";;
 		esac
 		if [ "$(grep "$package" | sed "s/$package//g")" -lt "$(grep "$package" $tmpdir/shoppepkg | sed "s/$package//g")" ]; then
 			echo -e "$infoPrefix Upgrading $package..."
