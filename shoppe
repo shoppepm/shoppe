@@ -77,7 +77,7 @@ success() {
 yesno() {
 	choice=null
 	until [ "$choice" = "y" ] || [ "$choice" = "Y" ] || [ "$choice" = "n" ] || [ "$choice" = "N" ]; do
-		read -ren1 choice
+		read -p "$yesnotxt" -ren1 choice
 		if [ -z "$choice" ]; then choice="$1"; fi
 	done
 	if [ "$choice" = "Y" ] || [ "$choice" = "y" ]; then choice="yes"; else choice="no"; fi
@@ -114,7 +114,7 @@ pinstall() {
 	echo -e "$infoPrefix Searching on shoppe repos..."
 	for package in $packages; do
 		if grep "$package" "$packagefile" &>/dev/null; then
-			echo "$package is already installed! Install anyways? [y/N]"
+			yesnotxt="$package is already installed! Install anyways? [y/N] "
 			yesno n
 			if [ "$choice" = "no" ]; then continue; else alreadyinstalled="true"; fi
 		fi
