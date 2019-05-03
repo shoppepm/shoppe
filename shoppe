@@ -75,11 +75,16 @@ success() {
 }
 
 yesno() {
-	choice=null
-	until [ "$choice" = "y" ] || [ "$choice" = "Y" ] || [ "$choice" = "n" ] || [ "$choice" = "N" ]; do
-		read -p "$yesnotxt" -ren1 choice
-		if [ -z "$choice" ]; then choice="$1"; fi
-	done
+	if ! [ "$noconfirm" = "true" ]; then
+		choice=null
+		until [ "$choice" = "y" ] || [ "$choice" = "Y" ] || [ "$choice" = "n" ] || [ "$choice" = "N" ]; do
+			read -p "$yesnotxt" -ren1 choice
+			if [ -z "$choice" ]; then choice="$1"; fi
+		done
+	else
+		echo "$yesnotxt$1"
+		choice="$1"
+	fi
 	if [ "$choice" = "Y" ] || [ "$choice" = "y" ]; then choice="yes"; else choice="no"; fi
 }
 
@@ -330,7 +335,13 @@ switches=$(echo "$switches" | sed -e 's/^[ \t]*//')
 debugprint "$command $packages [$switches]"
 for switch in $shoppeswitches; do
 	case $switch in
-	"+skipfrontend") skipfrontend="true";;
+		"+skipfrontend"|"+sf") skipfrontend="true";;
+		"+noconfirm"|"+nc") noconfirm="true";;
+	esac
+done
+for switch in $switches; do
+	case $switch in
+		"--noconfirm") noconfirm="true";;
 	esac
 done
 # Execute required command
