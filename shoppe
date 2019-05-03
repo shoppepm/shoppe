@@ -97,23 +97,25 @@ getpkg() {
 # Future functions: fetch, find, info.
 
 pinstall() {
+	depsuccess="false"
 	if [ -z "$packages" ]; then echo -e "$errorPrefix Nothing to install!"; exit 2; fi
 	if ! [ "$skipfrontend" = "true" ]; then
 		for pm in $installed; do
 			echo -e "$infoPrefix Using $pm..."
 			case $pm in
-				apt|apt-get|yum|dnf|eopkg|zypper) sudo "$pm" install $packages $switches && success;;
-				pkg) "$pm" install $packages $switches && success;;
-				pacman) sudo "$pm" -S $packages $switches && success;;
-				yaourt|yay) "$pm" -S $packages $switches && success;;
-				apk) sudo "$pm" add $packages $switches && success;;
+				apt|apt-get|yum|dnf|eopkg|zypper) sudo "$pm" install $packages $switches && if [ -z "$depinstall" ]; then success; else depsuccess="true"; break; fi;;
+				pkg) "$pm" install $packages $switches && if [ -z "$depinstall" ]; then success; else depsuccess="true"; break; fi;;
+				pacman) sudo "$pm" -S $packages $switches && if [ -z "$depinstall" ]; then success; else depsuccess="true"; break; fi;;
+				yaourt|yay) "$pm" -S $packages $switches && if [ -z "$depinstall" ]; then success; else depsuccess="true"; break; fi;;
+				apk) sudo "$pm" add $packages $switches && if [ -z "$depinstall" ]; then success; else depsuccess="true"; break; fi;;
 			esac
 			echo -e "$warnPrefix $pm failed."
 		done
 	fi
+if ! [ "$depsuccess" = "true" ]; then
 	echo -e "$infoPrefix Searching on shoppe repos..."
 	for package in $packages; do
-		if grep "$package" "$packagefile" &>/dev/null; then
+		if grep "^$package " "$packagefile" &>/dev/null; then
 			yesnotxt="$package is already installed! Install anyways? [y/N] "
 			yesno n
 			if [ "$choice" = "no" ]; then continue; else alreadyinstalled="true"; fi
@@ -145,7 +147,7 @@ pinstall() {
 		success=0
 		currentsuccess=0
 		for package in $toshoppe; do
-			clash="false"
+			clashes="false"
 			if [ -e "$tmpdir" ]; then rm -rf "$tmpdir"; fi
 			mkdir "$tmpdir"
 			! [ "$1" = "up" ] && echo -e "$infoPrefix Installing $package..."
@@ -174,14 +176,14 @@ pinstall() {
 			fi
 			cd "$tmpdir"
 			source shoppepkg
-			if ! [ -z "$dependencies" ]; then packages="$dependencies"; pinstall; fi
-			if ! [ -z "$makedepends" ]; then packages="$makedepends"; pinstall; fi
 			if ! [ -z "$conflicts" ]; then
 				for clash in $conflicts; do
-					grep "$clash" "$packagefile" && clash="true" && echo -e "$errorPrefix $name clashes with $clash. Remove clashing packages to be able to install $name."
+					grep "^$clash " "$packagefile" && clashes="true" && echo -e "$errorPrefix $name clashes with $clash. Remove clashing packages to be able to install $name."
 				done
 			fi
-			if [ "$clash" = "false" ]; then
+			if [ "$clashes" = "false" ]; then
+				if ! [ -z "$makedepends" ]; then depinstall="true"; packages="$makedepends"; pinstall; depsuccess="false"; fi
+				if ! [ -z "$depends" ]; then depinstall="true"; packages="$depends"; pinstall; depsuccess="false"; fi
 				if type -t shoppebuild &>/dev/null; then
 					echo -e "$infoPrefix Buidling..."
 					shoppebuild
@@ -204,6 +206,7 @@ pinstall() {
 	else
 		! [ "$1" = "up" ] && echo -e "$infoPrefix Installed succesfully." && exit 0
 	fi
+fi
 }
 
 premove() {
@@ -224,10 +227,10 @@ premove() {
 	currentpack="0"
 	for package in $packages; do
 		let currentpack++
-		if grep "$package" "$packagefile" &>/dev/null; then
+		if grep "^$package " "$packagefile" &>/dev/null; then
 			! [ "$1" = "up" ] && echo -e "$infoPrefix Removing package $package..."
 			xargs sudo rm -f < "$packinfodir/$package"
-			grep -v "$package" "$packagefile" > "$packagefile"-tmp
+			grep -v "^$package " "$packagefile" > "$packagefile"-tmp
 			mv -f "$packagefile"-tmp "$packagefile"
 			rm "$packinfodir/$package"
 			name="$package"
@@ -266,7 +269,7 @@ pupgrade() {
 				Local=*) cp -f "${repo/Local=/}/$arch/$package/shoppepkg" "$tmpdir"/; ! [ "$?" = "0" ] && cp -f "${repo/Local=/}/all/$package/shoppepkg" "$tmpdir"/;;
 			esac
 		done < $repofile
-		oldver="$(grep "$package" $packagefile | sed "s/$package//g")"
+		oldver="$(grep "^$package " $packagefile | sed "s/$package//g")"
 		newver="$(grep "numericver=" $tmpdir/shoppepkg | sed "s/numericver=//g")"
 		if [[ "$newver" = *"rolling"* ]] || [ "$oldver" -lt "$newver" ]; then
 			echo -e "$infoPrefix Upgrading $package..."
