@@ -1,4 +1,5 @@
 -! {PKG+SOFT} [!!!] Add prebuilt package support
--! {PACKAGE } [!! ] Implement fallback sources
+-! {SOFTWARE} [!!!] Add architecture detection
+- {SOFTWARE} [!!] Properly implement optional dependencies
 - {SOFTWARE} [!  ] Add planned functions
 - {FRONTEND} [!  ] Make AUR helpers remove pacman from available pms
