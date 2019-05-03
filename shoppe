@@ -145,6 +145,7 @@ pinstall() {
 		success=0
 		currentsuccess=0
 		for package in $toshoppe; do
+			clash="false"
 			if [ -e "$tmpdir" ]; then rm -rf "$tmpdir"; fi
 			mkdir "$tmpdir"
 			! [ "$1" = "up" ] && echo -e "$infoPrefix Installing $package..."
@@ -173,18 +174,27 @@ pinstall() {
 			fi
 			cd "$tmpdir"
 			source shoppepkg
-			if type -t shoppebuild &>/dev/null; then
-				echo -e "$infoPrefix Buidling..."
-				shoppebuild
+			if ! [ -z "$dependencies" ]; then packages="$dependencies"; pinstall; fi
+			if ! [ -z "$makedepends" ]; then packages="$makedepends"; pinstall; fi
+			if ! [ -z "$conflicts" ]; then
+				for clash in $conflicts; do
+					grep "$clash" "$packagefile" && clash="true" && echo -e "$errorPrefix $name clashes with $clash. Remove clashing packages to be able to install $name."
+				done
 			fi
-			echo -e "$infoPrefix Installing..."
-			shoppeinstall
-			sudo cp -rf "$tmpdir"/content/* /
-			cd "$tmpdir/content"
-			find ./ -type f | cut -c2-  > $packinfodir/$name
-			if [ "$currentsuccess" = "1" ] && ! [ "$alreadyinstalled" = "true" ]; then
-				# shellcheck disable=SC2154
-				echo "$name $numericver" >> $packagefile
+			if [ "$clash" = "false" ]; then
+				if type -t shoppebuild &>/dev/null; then
+					echo -e "$infoPrefix Buidling..."
+					shoppebuild
+				fi
+				echo -e "$infoPrefix Installing..."
+				shoppeinstall
+				sudo cp -rf "$tmpdir"/content/* /
+				cd "$tmpdir/content"
+				find ./ -type f | cut -c2-  > $packinfodir/$name
+				if [ "$currentsuccess" = "1" ] && ! [ "$alreadyinstalled" = "true" ]; then
+					# shellcheck disable=SC2154
+					echo "$name $numericver" >> $packagefile
+				fi
 			fi
 		done
 	fi
