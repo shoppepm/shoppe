@@ -3,7 +3,6 @@
 
 # shoppe by knuxify
 version="0.1"
-debug=true
 arch="x86_64"
 
 # Colors
@@ -335,6 +334,10 @@ command=$(echo "$command" | sed -e 's/^[ \t]*//')
 packages=$(echo "$packages" | sed -e 's/^[ \t]*//')
 switches=$(echo "$switches" | sed -e 's/^[ \t]*//')
 debugprint "$command $packages [$switches]"
+if [ -z $command ]; then
+	echo -e "$errorPrefix Nothing to do!"
+	exit 1
+fi
 for switch in $shoppeswitches; do
 	case $switch in
 		"+skipfrontend"|"+sf") skipfrontend="true";;
