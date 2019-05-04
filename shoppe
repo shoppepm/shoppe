@@ -176,6 +176,7 @@ if ! [ "$depsuccess" = "true" ]; then
 				done
 				case $getrepo in
 					GithubRepo=*) wget -q https://raw.githubusercontent.com/"${getrepo/GithubRepo=/}"/master/"$getarch"/"$package"/shoppepkg -O "$tmpdir"/shoppepkg;;
+					Local=*) cp "${getrepo/Local=/}"/"$getarch"/"$package"/shoppepkg "$tmpdir"/;;
 				esac
 			fi
 			cd "$tmpdir"
