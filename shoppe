@@ -268,15 +268,17 @@ pupgrade() {
 	while IFS="" read -r package || [ -n "$package" ]; do
 		rm -rf "$tmpdir"
 		mkdir "$tmpdir"
+		dpackage="$(echo $package | sed 's/\s.*$//')"
 		while IFS="" read -r repo; do
 			case $repo in
-				GithubRepo=*) wget -q https://raw.githubusercontent.com/"${repo/GithubRepo=/}"/master/"$arch"/"$package"/shoppepkg -O "$tmpdir"/shoppepkg; ! [ "$?" = "0" ] && wget -q https://raw.githubusercontent.com/"${repo/GithubRepo=/}"/master/all/"$package"/shoppepkg -O "$tmpdir"/shoppepkg;;
-				Local=*) cp -f "${repo/Local=/}/$arch/$package/shoppepkg" "$tmpdir"/; ! [ "$?" = "0" ] && cp -f "${repo/Local=/}/all/$package/shoppepkg" "$tmpdir"/;;
+				GithubRepo=*) wget -q https://raw.githubusercontent.com/"${repo/GithubRepo=/}"/master/"$arch"/"$dpackage"/shoppepkg -O "$tmpdir"/shoppepkg; ! [ "$?" = "0" ] && wget -q https://raw.githubusercontent.com/"${repo/GithubRepo=/}"/master/all/"$dpackage"/shoppepkg -O "$tmpdir"/shoppepkg;;
+				Local=*) cp -f "${repo/Local=/}/$arch/$dpackage/shoppepkg" "$tmpdir"/; ! [ "$?" = "0" ] && cp -f "${repo/Local=/}/all/$dpackage/shoppepkg" "$tmpdir"/;;
 			esac
 		done < $repofile
-		oldver="$(grep "^$package " $packagefile | sed "s/$package//g")"
-		newver="$(grep "numericver=" $tmpdir/shoppepkg | sed "s/numericver=//g")"
-		if [[ "$newver" = *"rolling"* ]] || [ "$oldver" -lt "$newver" ]; then
+		cd "$tmpdir"
+		source shoppepkg
+		oldver="$(echo "$package" | sed "s/$name//g")"
+		if [ "$numericver" = "rolling" ] || [ $numericver -gt $oldver ]; then
 			echo -e "$infoPrefix Upgrading $package..."
 			skipfrontend="true"
 			packages="$package" premove up
