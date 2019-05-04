@@ -127,8 +127,8 @@ if ! [ "$depsuccess" = "true" ]; then
 		while IFS="" read -r repo || [ -n "$repo" ]; do
 			# shellcheck disable=SC1083,SC2086
 			case $repo in
-				GithubRepo=*) response="$(curl --write-out %{http_code} --silent --output /dev/null https://raw.githubusercontent.com/${repo/GithubRepo=/}/master/$arch/$package/shoppepkg)"; if [ "$response" = "200" ]; then echo -e "$infoPrefix Found $package in repository ${repo/GithubRepo=/}."; toshoppe="$toshoppe $package"; tsrepos="$tsrepos $repo"; tsarch="$tsarch all"; fi;;
-				Local=*) if [ -e "${repo/Local=/}/$arch/$package/shoppepkg" ] ; then echo -e "$infoPrefix Found $package in repository ${repo/Local=/}."; toshoppe="$toshoppe $package"; tsrepos="$tsrepos $repo"; tsarch="$tsarch all"; fi;;
+				GithubRepo=*) response="$(curl --write-out %{http_code} --silent --output /dev/null https://raw.githubusercontent.com/${repo/GithubRepo=/}/master/$arch/$package/shoppepkg)"; if [ "$response" = "200" ]; then echo -e "$infoPrefix Found $package in repository ${repo/GithubRepo=/}."; toshoppe="$toshoppe $package"; tsrepos="$tsrepos $repo"; tsarch="$tsarch $arch"; fi;;
+				Local=*) if [ -e "${repo/Local=/}/$arch/$package/shoppepkg" ] ; then echo -e "$infoPrefix Found $package in repository ${repo/Local=/}."; toshoppe="$toshoppe $package"; tsrepos="$tsrepos $repo"; tsarch="$tsarch $arch"; fi;;
 			esac
 		done < "$repofile"
 		toshoppe=$(echo "$toshoppe" | sed -e 's/^[ \t]*//')
