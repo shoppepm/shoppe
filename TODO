@@ -1,5 +1,7 @@
 -! {PKG+SOFT} [!!!] Add prebuilt package support
 -! {SOFTWARE} [!!!] Add architecture detection
 - {SOFTWARE} [!!] Properly implement optional dependencies
+  + Idea: "optional" file that is downloaded when optional dependencies are found in shoppepkg, 
+  * for dependency in optional find appropriate line and print "optionaldep - description from optional file"
 - {SOFTWARE} [!  ] Add planned functions
 - {FRONTEND} [!  ] Make AUR helpers remove pacman from available pms
