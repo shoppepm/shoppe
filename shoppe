@@ -30,7 +30,6 @@ debugprint() {
 }
 
 debugprint "shoppe version $version"
-echo -e "$warnPrefix shoppe is work-in-progress alpha software! Feel free to help out by submitting issues and adding your own code. See TODO for things to do."
 # Don't run shoppe as root!
 if [ "$EUID" -eq 0 ]; then echo -e "$errorPrefix Don't run shoppe as root!"; exit 4; fi
 
@@ -323,6 +322,66 @@ pupdate() {
 	fi
 }
 
+pquery-info() {
+	if [ -z "${packages/$querycommand/}" ]; then
+		echo -e "$errorPrefix Nothing to query!"
+		echo -e "$errorPrefix Available options: query info packages, query info installed"
+		exit 2
+	fi
+	echo -e "$warnPrefix TODO: Frontend support. Currently this only searches for packy packages."
+	packages="${packages/$querycommand/}"
+	packages=$(echo "$packages" | sed -e 's/^[ \t]*//')
+	if [ "$packages" = "installed" ]; then
+		packages=""
+		while IFS="" read -r package; do
+			packages="$packages $(echo $package | sed 's/\s.*$//')"
+		done < $packagefile
+		packages=$(echo "$packages" | sed -e 's/^[ \t]*//')
+	fi
+	for package in $packages; do
+		rm -rf "$tmpdir"
+		mkdir "$tmpdir"
+		dpackage="$(echo $package | sed 's/\s.*$//')"
+		while IFS="" read -r repo; do
+			case $repo in
+				GithubRepo=*) wget -q https://raw.githubusercontent.com/"${repo/GithubRepo=/}"/master/"$arch"/"$dpackage"/shoppepkg -O "$tmpdir"/shoppepkg; ! [ "$?" = "0" ] && wget -q https://raw.githubusercontent.com/"${repo/GithubRepo=/}"/master/all/"$dpackage"/shoppepkg -O "$tmpdir"/shoppepkg;;
+				Local=*) cp -f "${repo/Local=/}/$arch/$dpackage/shoppepkg" "$tmpdir"/; ! [ "$?" = "0" ] && cp -f "${repo/Local=/}/all/$dpackage/shoppepkg" "$tmpdir"/;;
+			esac
+		done < $repofile
+		cd "$tmpdir"
+		source shoppepkg
+		echo "==="
+		echo "$name - $desc"
+		echo "version: $version (package version $numericver)"
+		echo "Licenced under the $license license"
+		echo "Website: $website"
+		echo "Dependencies: $depends (make: $makedepends)"
+		echo "Optional dependencies: $optional"
+	done
+}
+
+pquery-packcount() {
+	if ! [ "$rawquery" = "true" ]; then
+		echo -e "$warnPrefix TODO: Frontend support. Currently this only searches for packy packages."
+		echo "Package count: $(wc -l $packagefile | awk '{ print $1 }')"
+	else
+		wc -l $packagefile | awk '{ print $1 }'
+	fi
+}
+
+pquery() {
+	if [ -z "$querycommand" ]; then
+		echo -e "$errorPrefix No query command given!"
+		echo -e "$errorPrefix Available query commands: info, packcount"
+		exit 2
+	else
+		case $querycommand in
+			'info') pquery-info;;
+			'packcount') pquery-packcount;;
+		esac
+	fi
+}
+
 # Parse options.
 for parse in "$@"; do
 	case $parse in
@@ -331,8 +390,7 @@ for parse in "$@"; do
 		'update') command="update";;
 		'upgrade') command="upgrade";;
 #		'fetch') command="fetch";;
-#		'find') command="find";;
-#		'info') command="info";;
+		'query') command="query"; querycommand="$2";;
 		-*) switches="$switches $parse";;
 		+*) shoppeswitches="$shoppeswitches $parse";;
 		*) packages="$packages $parse";;
@@ -350,6 +408,7 @@ for switch in $shoppeswitches; do
 	case $switch in
 		"+skipfrontend"|"+sf") skipfrontend="true";;
 		"+noconfirm"|"+nc") noconfirm="true";;
+		"+rawquery"|"+rq") rawquery="true";;
 	esac
 done
 for switch in $switches; do
