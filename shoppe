@@ -1,5 +1,5 @@
 #!/bin/bash
-# shellcheck disable=SC2219,SC2001,SC2164,SC2086,2181
+# shellcheck disable=SC2219,SC2001,SC2164,SC2086,SC2181
 
 # shoppe by knuxify
 version="0.1"
@@ -201,6 +201,13 @@ if ! [ "$depsuccess" = "true" ]; then
 				if [ "$currentsuccess" = "1" ] && ! [ "$alreadyinstalled" = "true" ]; then
 					# shellcheck disable=SC2154
 					echo "$name $numericver" >> $packagefile
+				fi
+				if ! [ "$1" = "up" ]; then
+					nopt=0
+					for opt in $optional; do
+						let nopt++
+						echo "$opt:"; sed -n "$nopt,${nopt}p" optional
+					done
 				fi
 			fi
 		done
