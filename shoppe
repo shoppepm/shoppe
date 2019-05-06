@@ -101,8 +101,8 @@ fetch() {
 	dpackage="$(echo $package | sed 's/\s.*$//')"
 	while IFS="" read -r repo; do
 		case $repo in
-			GithubRepo=*) wget -q https://raw.githubusercontent.com/"${repo/GithubRepo=/}"/master/"$arch"/"$dpackage"/shoppepkg -O "$tmpdir"/shoppepkg; ! [ "$?" = "0" ] && wget -q https://raw.githubusercontent.com/"${repo/GithubRepo=/}"/master/all/"$dpackage"/shoppepkg -O "$tmpdir"/shoppepkg;;
-			Local=*) cp -f "${repo/Local=/}/$arch/$dpackage/shoppepkg" "$tmpdir"/; ! [ "$?" = "0" ] && cp -f "${repo/Local=/}/all/$dpackage/shoppepkg" "$tmpdir"/;;
+			GithubRepo=*) wget -q https://raw.githubusercontent.com/"${repo/GithubRepo=/}"/master/"$arch"/"$dpackage"/shoppepkg -O "$tmpdir"/shoppepkg; ! [ "$?" = "0" ] && wget -q https://raw.githubusercontent.com/"${repo/GithubRepo=/}"/master/all/"$dpackage"/shoppepkg -O "$tmpdir"/shoppepkg && success="true";;
+			Local=*) cp -f "${repo/Local=/}/$arch/$dpackage/shoppepkg" "$tmpdir"/; ! [ "$?" = "0" ] && cp -f "${repo/Local=/}/all/$dpackage/shoppepkg" "$tmpdir"/ && success="true";;
 		esac
 	done < $repofile
 }
@@ -124,43 +124,20 @@ pinstall() {
 			echo -e "$warnPrefix $pm failed."
 		done
 	fi
-if ! [ "$depsuccess" = "true" ]; then
-	echo -e "$infoPrefix Searching on shoppe repos..."
-	for package in $packages; do
-		if grep "^$package " "$packagefile" &>/dev/null; then
-			yesnotxt="$package is already installed! Install anyways? [y/N] "
-			yesno n
-			if [ "$choice" = "no" ]; then continue; else alreadyinstalled="true"; fi
-		fi
-		while IFS="" read -r repo || [ -n "$repo" ]; do
-			# shellcheck disable=SC1083,SC2086
-			case $repo in
-				GithubRepo=*) response="$(curl --write-out %{http_code} --silent --output /dev/null https://raw.githubusercontent.com/${repo/GithubRepo=/}/master/$arch/$package/shoppepkg)"; if [ "$response" = "200" ]; then echo -e "$infoPrefix Found $package in repository ${repo/GithubRepo=/}."; toshoppe="$toshoppe $package"; tsrepos="$tsrepos $repo"; tsarch="$tsarch $arch"; fi;;
-				Local=*) if [ -e "${repo/Local=/}/$arch/$package/shoppepkg" ] ; then echo -e "$infoPrefix Found $package in repository ${repo/Local=/}."; toshoppe="$toshoppe $package"; tsrepos="$tsrepos $repo"; tsarch="$tsarch $arch"; fi;;
-			esac
-		done < "$repofile"
-		toshoppe=$(echo "$toshoppe" | sed -e 's/^[ \t]*//')
-		while IFS="" read -r repo || [ -n "$repo" ]; do
-			# shellcheck disable=SC1083,SC2086
-			case $repo in
-				GithubRepo=*) response="$(curl --write-out %{http_code} --silent --output /dev/null https://raw.githubusercontent.com/${repo/GithubRepo=/}/master/all/$package/shoppepkg)"; if [ "$response" = "200" ]; then echo -e "$infoPrefix Found $package in repository ${repo/GithubRepo=/}."; toshoppe="$toshoppe $package"; tsrepos="$tsrepos $repo"; tsarch="$tsarch all"; fi;;
-				Local=*) if [ -e "${repo/Local=/}/all/$package/shoppepkg" ] ; then echo -e "$infoPrefix Found $package in repository ${repo/Local=/}."; toshoppe="$toshoppe $package"; tsrepos="$tsrepos $repo"; tsarch="$tsarch all"; fi;;
-			esac
-		done < "$repofile"
-	done
-	toshoppe=$(echo "$toshoppe" | sed -e 's/^[ \t]*//')
-	tsrepos=$(echo "$tsrepos" | sed -e 's/^[ \t]*//')
-	tsarch=$(echo "$tsarch" | sed -e 's/^[ \t]*//')
-	if [ -z "$toshoppe" ]; then
-		echo -e "$errorPrefix Failed to install some packages. Double check your spelling."
-		exit 1
-	else
+	if ! [ "$depsuccess" = "true" ]; then
+		echo -e "$infoPrefix Searching on shoppe repos..."
 		currentpack=0
 		success=0
 		currentsuccess=0
-		for package in $toshoppe; do
+		for package in $packages; do
+			if grep "^$package " "$packagefile" &>/dev/null; then
+				yesnotxt="$package is already installed! Install anyways? [y/N] "
+				yesno n
+				if [ "$choice" = "no" ]; then continue; else alreadyinstalled="true"; fi
+			fi
+			success="false"
 			clashes="false"
-			if [ -e "$tmpdir" ]; then rm -rf "$tmpdir"; fi
+			rm -rf "$tmpdir"
 			mkdir "$tmpdir"
 			! [ "$1" = "up" ] && echo -e "$infoPrefix Installing $package..."
 			let currentpack++
@@ -168,11 +145,12 @@ if ! [ "$depsuccess" = "true" ]; then
 				echo -e "$infoPrefix Fetching package..."
 				fetch
 			fi
+			if ! [ "$success" = "true" ]; then echo -e "$errorPrefix Could not fetch package: $package"; continue; fi
 			cd "$tmpdir"
 			source shoppepkg
 			if ! [ -z "$conflicts" ]; then
 				for clash in $conflicts; do
-					grep "^$clash " "$packagefile" && clashes="true" && echo -e "$errorPrefix $name clashes with $clash. Remove clashing packages to be able to install $name."
+					grep "^$clash " "$packagefile" &>/dev/null && clashes="true" && echo -e "$errorPrefix $name clashes with $clash. Remove clashing packages to be able to install $name."
 				done
 			fi
 			if [ "$clashes" = "false" ]; then
@@ -200,14 +178,13 @@ if ! [ "$depsuccess" = "true" ]; then
 				fi
 			fi
 		done
+		if ! [ "$success" = "$currentpack" ]; then
+			echo -e "$errorPrefix Failed to install some packages. Double check your spelling."
+			exit 1
+		else
+			! [ "$1" = "up" ] && echo -e "$infoPrefix Installed succesfully." && exit 0
+		fi
 	fi
-	if ! [ "$success" = "$currentpack" ]; then
-		echo -e "$errorPrefix Failed to install some packages. Double check your spelling."
-		exit 1
-	else
-		! [ "$1" = "up" ] && echo -e "$infoPrefix Installed succesfully." && exit 0
-	fi
-fi
 }
 
 premove() {
@@ -312,7 +289,7 @@ pquery-info() {
 		echo -e "$errorPrefix Available options: query info packages, query info installed"
 		exit 2
 	fi
-	echo -e "$warnPrefix TODO: Frontend support. Currently this only searches for packy packages."
+	echo -e "$warnPrefix TODO: Frontend support. Currently this only searches for shoppe packages."
 	packages="${packages/$querycommand/}"
 	packages=$(echo "$packages" | sed -e 's/^[ \t]*//')
 	if [ "$packages" = "installed" ]; then
@@ -340,10 +317,19 @@ pquery-info() {
 
 pquery-packcount() {
 	if ! [ "$rawquery" = "true" ]; then
-		echo -e "$warnPrefix TODO: Frontend support. Currently this only searches for packy packages."
+		echo -e "$warnPrefix TODO: Frontend support. Currently this only searches for shoppe packages."
 		echo "Package count: $(wc -l $packagefile | awk '{ print $1 }')"
 	else
 		wc -l $packagefile | awk '{ print $1 }'
+	fi
+}
+
+pquery-list() {
+	if ! [ "$rawquery" = "true" ]; then
+		echo -e "$warnPrefix TODO: Frontend support. Currently this only searches for shoppe packages."
+		cat $packagefile
+	else
+		cat $packagefile
 	fi
 }
 
@@ -356,6 +342,7 @@ pquery() {
 		case $querycommand in
 			'info') pquery-info;;
 			'packcount') pquery-packcount;;
+			'list') pquery-list;;
 		esac
 	fi
 }
