@@ -86,7 +86,6 @@ yesno() {
 	if [ "$choice" = "Y" ] || [ "$choice" = "y" ]; then choice="yes"; else choice="no"; fi
 }
 
-# For shoppepkg
 getpkg() {
 	# shellcheck disable=SC2154
 	case $sourcetype in
@@ -96,9 +95,19 @@ getpkg() {
 	esac
 }
 
-# Functions: Install, remove, update, upgrade.
-# Future functions: fetch, find, info.
+fetch() {
+	# DEV NOTE: This is an internal function used to fetch packages.
+	# How to use: Use this when you need to fetch a package from a for loop (for package in $packages).
+	dpackage="$(echo $package | sed 's/\s.*$//')"
+	while IFS="" read -r repo; do
+		case $repo in
+			GithubRepo=*) wget -q https://raw.githubusercontent.com/"${repo/GithubRepo=/}"/master/"$arch"/"$dpackage"/shoppepkg -O "$tmpdir"/shoppepkg; ! [ "$?" = "0" ] && wget -q https://raw.githubusercontent.com/"${repo/GithubRepo=/}"/master/all/"$dpackage"/shoppepkg -O "$tmpdir"/shoppepkg;;
+			Local=*) cp -f "${repo/Local=/}/$arch/$dpackage/shoppepkg" "$tmpdir"/; ! [ "$?" = "0" ] && cp -f "${repo/Local=/}/all/$dpackage/shoppepkg" "$tmpdir"/;;
+		esac
+	done < $repofile
+}
 
+# Functions
 pinstall() {
 	depsuccess="false"
 	if [ -z "$packages" ]; then echo -e "$errorPrefix Nothing to install!"; exit 2; fi
@@ -157,26 +166,7 @@ if ! [ "$depsuccess" = "true" ]; then
 			let currentpack++
 			if ! [ "$1" = "up" ]; then
 				echo -e "$infoPrefix Fetching package..."
-				currentrepo=1
-				for repo in $tsrepos; do
-					if ! [ "$currentrepo" -eq "$currentpack" ]; then
-						let currentrepo++
-					else
-						getrepo="$repo"
-					fi
-				done
-				currentarch=1
-				for archt in $tsarch; do
-					if ! [ "$currentarch" -eq "$currentpack" ]; then
-						let currentarch++
-					else
-						getarch="$archt"
-					fi
-				done
-				case $getrepo in
-					GithubRepo=*) wget -q https://raw.githubusercontent.com/"${getrepo/GithubRepo=/}"/master/"$getarch"/"$package"/shoppepkg -O "$tmpdir"/shoppepkg;;
-					Local=*) cp "${getrepo/Local=/}"/"$getarch"/"$package"/shoppepkg "$tmpdir"/;;
-				esac
+				fetch
 			fi
 			cd "$tmpdir"
 			source shoppepkg
@@ -274,13 +264,7 @@ pupgrade() {
 	while IFS="" read -r package || [ -n "$package" ]; do
 		rm -rf "$tmpdir"
 		mkdir "$tmpdir"
-		dpackage="$(echo $package | sed 's/\s.*$//')"
-		while IFS="" read -r repo; do
-			case $repo in
-				GithubRepo=*) wget -q https://raw.githubusercontent.com/"${repo/GithubRepo=/}"/master/"$arch"/"$dpackage"/shoppepkg -O "$tmpdir"/shoppepkg; ! [ "$?" = "0" ] && wget -q https://raw.githubusercontent.com/"${repo/GithubRepo=/}"/master/all/"$dpackage"/shoppepkg -O "$tmpdir"/shoppepkg;;
-				Local=*) cp -f "${repo/Local=/}/$arch/$dpackage/shoppepkg" "$tmpdir"/; ! [ "$?" = "0" ] && cp -f "${repo/Local=/}/all/$dpackage/shoppepkg" "$tmpdir"/;;
-			esac
-		done < $repofile
+		fetch
 		cd "$tmpdir"
 		source shoppepkg
 		oldver="$(echo "$package" | sed "s/$name//g")"
@@ -341,13 +325,7 @@ pquery-info() {
 	for package in $packages; do
 		rm -rf "$tmpdir"
 		mkdir "$tmpdir"
-		dpackage="$(echo $package | sed 's/\s.*$//')"
-		while IFS="" read -r repo; do
-			case $repo in
-				GithubRepo=*) wget -q https://raw.githubusercontent.com/"${repo/GithubRepo=/}"/master/"$arch"/"$dpackage"/shoppepkg -O "$tmpdir"/shoppepkg; ! [ "$?" = "0" ] && wget -q https://raw.githubusercontent.com/"${repo/GithubRepo=/}"/master/all/"$dpackage"/shoppepkg -O "$tmpdir"/shoppepkg;;
-				Local=*) cp -f "${repo/Local=/}/$arch/$dpackage/shoppepkg" "$tmpdir"/; ! [ "$?" = "0" ] && cp -f "${repo/Local=/}/all/$dpackage/shoppepkg" "$tmpdir"/;;
-			esac
-		done < $repofile
+		fetch
 		cd "$tmpdir"
 		source shoppepkg
 		echo "==="
@@ -372,7 +350,7 @@ pquery-packcount() {
 pquery() {
 	if [ -z "$querycommand" ]; then
 		echo -e "$errorPrefix No query command given!"
-		echo -e "$errorPrefix Available query commands: info, packcount"
+		echo -e "$errorPrefix Available query commands: info, packcount, list"
 		exit 2
 	else
 		case $querycommand in
