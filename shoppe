@@ -4,6 +4,7 @@
 # shoppe by knuxify
 version="0.1"
 arch="x86_64"
+nobuild="true"
 
 # Colors
 color() {
@@ -99,12 +100,14 @@ fetch() {
 	# DEV NOTE: This is an internal function used to fetch packages.
 	# How to use: Use this when you need to fetch a package from a for loop (for package in $packages).
 	dpackage="$(echo $package | sed 's/\s.*$//')"
-	while IFS="" read -r repo; do
-		case $repo in
-			GithubRepo=*) wget -q https://raw.githubusercontent.com/"${repo/GithubRepo=/}"/master/"$arch"/"$dpackage"/shoppepkg -O "$tmpdir"/shoppepkg; ! [ "$?" = "0" ] && wget -q https://raw.githubusercontent.com/"${repo/GithubRepo=/}"/master/all/"$dpackage"/shoppepkg -O "$tmpdir"/shoppepkg && success="true";;
-			Local=*) cp -f "${repo/Local=/}/$arch/$dpackage/shoppepkg" "$tmpdir"/; ! [ "$?" = "0" ] && cp -f "${repo/Local=/}/all/$dpackage/shoppepkg" "$tmpdir"/ && success="true";;
-		esac
-	done < $repofile
+	for todownload in shoppepkg 'content.tar.gz'; do
+		while IFS="" read -r repo; do
+			case $repo in
+				GithubRepo=*) wget -q https://raw.githubusercontent.com/"${repo/GithubRepo=/}"/master/"$arch"/"$dpackage"/"$todownload" -O "$tmpdir"/"$todownload"; ! [ "$?" = "0" ] && wget -q https://raw.githubusercontent.com/"${repo/GithubRepo=/}"/master/all/"$dpackage"/"$todownload" -O "$tmpdir"/"$todownload" && success="true";;
+				Local=*) cp -f "${repo/Local=/}/$arch/$dpackage/$todownload" "$tmpdir"/; ! [ "$?" = "0" ] && cp -f "${repo/Local=/}/all/$dpackage/$todownload" "$tmpdir"/ && success="true";;
+			esac
+		done < $repofile
+	done
 }
 
 # Functions
@@ -154,14 +157,16 @@ pinstall() {
 				done
 			fi
 			if [ "$clashes" = "false" ]; then
+				if ! [ -s "content.tar.gz" ]; then echo -e "$warnPrefix No prebuilt files found, defaulting to build mode..."; nobuild="false"; fi
 				if ! [ -z "$makedepends" ]; then depinstall="true"; packages="$makedepends"; pinstall; depsuccess="false"; fi
 				if ! [ -z "$depends" ]; then depinstall="true"; packages="$depends"; pinstall; depsuccess="false"; fi
-				if type -t shoppebuild &>/dev/null; then
+				if ! [ "$nobuild" = "true" ] && type -t shoppebuild &>/dev/null; then
 					echo -e "$infoPrefix Buidling..."
 					shoppebuild
 				fi
 				echo -e "$infoPrefix Installing..."
-				shoppeinstall
+				type -t shoppeinstall &>/dev/null && shoppeinstall
+				[ "$nobuild" = "true" ] && tar -xzf content.tar.gz -C content
 				sudo cp -rf "$tmpdir"/content/* /
 				cd "$tmpdir/content"
 				find ./ -type f | cut -c2-  > $packinfodir/$name
@@ -374,6 +379,7 @@ for switch in $shoppeswitches; do
 		"+skipfrontend"|"+sf") skipfrontend="true";;
 		"+noconfirm"|"+nc") noconfirm="true";;
 		"+rawquery"|"+rq") rawquery="true";;
+		"+forcebuild"|"+fb") nobuild="false";;
 	esac
 done
 for switch in $switches; do
