@@ -173,7 +173,7 @@ pinstall() {
 				    echo "$file" >> "$packinfodir/$name"
 				done
 				shopt -u globstar
-				# NOTE: Old Bash-friendly method:
+				# NOTE: Bash <4 friendly method:
 				# find ./ -type f | cut -c2- > $packinfodir/$name
 				if [ "$currentsuccess" = "1" ] && ! [ "$alreadyinstalled" = "true" ]; then
 					# shellcheck disable=SC2154
