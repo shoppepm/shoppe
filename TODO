@@ -1,5 +1,4 @@
 - {PKG+SOFT} [!!!] Add prebuilt package support
-- {SOFTWARE} [!!!] Add architecture detection
 - {SOFTWARE} [!! ] Add frontend to query functions 
 - {SOFTWARE} [!  ] Add fetch function
 - {FRONTEND} [!  ] Make AUR helpers remove pacman from available pms
