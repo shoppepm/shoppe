@@ -25,13 +25,13 @@ infoPrefix="$(color 4)||$(color r)"
 warnPrefix="$(color 3)~!$(color r)"
 errorPrefix="$(color 1)!!$(color r)"
 debugPrefix="$(color 5)~~$(color r)"
+
 debugprint() {
-	if [ "$debug" = "true" ]; then
-		echo -e "$debugPrefix $*"
-	fi
+	[ "$debug" = "true" ] && echo -e "$debugPrefix $*"
 }
 
 echo -e "$debugPrefix shoppe version $version, architecture: $arch"
+
 # Don't run shoppe as root!
 if [ "$EUID" -eq 0 ]; then echo -e "$errorPrefix Don't run shoppe as root!"; exit 4; fi
 
@@ -43,9 +43,9 @@ packinfodir="$configdir/packinfo"
 tmpdir="$configdir/tmp"
 
 # Create shoppe files
-if ! [ -e "$configdir" ]; then mkdir -p "$configdir"; fi
-if ! [ -e "$repofile" ]; then echo "GithubRepo=knuxify/shoppe-repos" > "$repofile"; fi
-if ! [ -e "$packinfodir" ]; then mkdir "$packinfodir"; fi
+! [ -e "$configdir" ] && mkdir -p "$configdir"
+! [ -e "$repofile" ] && echo "GithubRepo=knuxify/shoppe-repos" > "$repofile"
+! [ -e "$packinfodir" ] && mkdir "$packinfodir"
 
 # TODO package managers
 unsupportedManagers="emerge nix-env"
@@ -146,22 +146,19 @@ pinstall() {
 			mkdir "$tmpdir"
 			! [ "$1" = "up" ] && echo -e "$infoPrefix Installing $package..."
 			let currentpack++
-			if ! [ "$1" = "up" ]; then
-				echo -e "$infoPrefix Fetching package..."
-				fetch
-			fi
+			if ! [ "$1" = "up" ]; then echo -e "$infoPrefix Fetching package..."; fetch; fi
 			if ! [ "$success" = "true" ]; then echo -e "$errorPrefix Could not fetch package: $package"; continue; fi
 			cd "$tmpdir"
 			source shoppepkg
-			if ! [ -z "$conflicts" ]; then
+			if [ "$conflicts" ]; then
 				for clash in $conflicts; do
 					grep "^$clash " "$packagefile" &>/dev/null && clashes="true" && echo -e "$errorPrefix $name clashes with $clash. Remove clashing packages to be able to install $name."
 				done
 			fi
 			if [ "$clashes" = "false" ]; then
-				if ! [ -s "content.tar.gz" ]; then echo -e "$warnPrefix No prebuilt files found, defaulting to build mode..."; nobuild="false"; fi
-				if ! [ -z "$makedepends" ]; then depinstall="true"; packages="$makedepends"; pinstall; depsuccess="false"; fi
-				if ! [ -z "$depends" ]; then depinstall="true"; packages="$depends"; pinstall; depsuccess="false"; fi
+				if ! [ -s "content.tar.gz" ]; then echo -e "$warnPrefix No prebuilt files found, defaulting to build mode..." && nobuild="false"; fi
+				if [ "$makedepends" ]; then depinstall="true"; packages="$makedepends"; pinstall; depsuccess="false"; fi
+				if [ "$depends" ]; then depinstall="true"; packages="$depends"; pinstall; depsuccess="false"; fi
 				if ! [ "$nobuild" = "true" ] && type -t shoppebuild &>/dev/null; then
 					echo -e "$infoPrefix Buidling..."
 					shoppebuild
@@ -169,9 +166,15 @@ pinstall() {
 				echo -e "$infoPrefix Installing..."
 				type -t shoppeinstall &>/dev/null && shoppeinstall
 				[ "$nobuild" = "true" ] && tar -xzf content.tar.gz -C content
-				sudo cp -rf "$tmpdir"/content/* /
+				sudo cp -rf "$tmpdir/content"/* /
 				cd "$tmpdir/content"
-				find ./ -type f | cut -c2-  > $packinfodir/$name
+				shopt -s globstar
+				for file in "$tmpdir/content"/**; do
+				    echo "$file" >> "$packinfodir/$name"
+				done
+				shopt -u globstar
+				# NOTE: Old Bash-friendly method:
+				# find ./ -type f | cut -c2- > $packinfodir/$name
 				if [ "$currentsuccess" = "1" ] && ! [ "$alreadyinstalled" = "true" ]; then
 					# shellcheck disable=SC2154
 					echo "$name $revision" >> $packagefile
@@ -215,8 +218,8 @@ premove() {
 		if grep "^$package " "$packagefile" &>/dev/null; then
 			! [ "$1" = "up" ] && echo -e "$infoPrefix Removing package $package..."
 			xargs sudo rm -f < "$packinfodir/$package"
-			grep -v "^$package " "$packagefile" > "$packagefile"-tmp
-			mv -f "$packagefile"-tmp "$packagefile"
+			grep -v "^$package " "$packagefile" > "${packagefile}-tmp"
+			mv -f "${packagefile}-tmp" "$packagefile"
 			rm "$packinfodir/$package"
 			name="$package"
 			success
@@ -286,7 +289,7 @@ pupdate() {
 		done
 		echo -e "$errorPrefix Repo update failed."
 	else
-		echo -e "$errorPrefix There is no need to update repositories in shoppe."
+		echo -e "$infoPrefix There is no need to update repositories in shoppe."
 	fi
 }
 
