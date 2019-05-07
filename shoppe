@@ -173,7 +173,7 @@ pinstall() {
 				find ./ -type f | cut -c2-  > $packinfodir/$name
 				if [ "$currentsuccess" = "1" ] && ! [ "$alreadyinstalled" = "true" ]; then
 					# shellcheck disable=SC2154
-					echo "$name $numericver" >> $packagefile
+					echo "$name $revision" >> $packagefile
 				fi
 				if ! [ "$1" = "up" ]; then
 					nopt=0
@@ -251,7 +251,7 @@ pupgrade() {
 		cd "$tmpdir"
 		source shoppepkg
 		oldver="$(echo "$package" | sed "s/$name//g")"
-		if [ "$numericver" = "rolling" ] || [ $numericver -gt $oldver ]; then
+		if [ "$revision" = "rolling" ] || [ $revision -gt $oldver ]; then
 			echo -e "$infoPrefix Upgrading $package..."
 			skipfrontend="true"
 			packages="$package" premove up
@@ -313,7 +313,7 @@ pquery-info() {
 		source shoppepkg
 		echo "==="
 		echo "$name - $desc"
-		echo "version: $version (package version $numericver)"
+		echo "version: $version (package version $revision)"
 		echo "Licenced under the $license license"
 		echo "Website: $website"
 		echo "Dependencies: $depends (make: $makedepends)"
