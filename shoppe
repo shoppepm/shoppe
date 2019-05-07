@@ -93,7 +93,8 @@ getpkg() {
 	case $sourcetype in
 		git) mkdir "$name"; git clone "$source" "$name";;
 		git-tag) mkdir "$name"; git clone --branch "$tag" "$source" "$name";;
-		compressed) mkdir "$name"; cd "$name"; wget "$source"; tar xzf ./*; cd ..;;
+		tar) mkdir "$name"; cd "$name"; wget "$source"; tar xvf ./*; cd ..;;
+		#compressed) mkdir "$name"; cd "$name"; wget "$source"; tar xzf ./*; cd ..;;
 	esac
 }
 
@@ -104,8 +105,8 @@ fetch() {
 	for todownload in shoppepkg 'content.tar.gz'; do
 		while IFS="" read -r repo; do
 			case $repo in
-				GithubRepo=*) wget -q https://raw.githubusercontent.com/"${repo/GithubRepo=/}"/master/"$arch"/"$dpackage"/"$todownload" -O "$tmpdir"/"$todownload"; ! [ "$?" = "0" ] && wget -q https://raw.githubusercontent.com/"${repo/GithubRepo=/}"/master/all/"$dpackage"/"$todownload" -O "$tmpdir"/"$todownload" && success="true";;
-				Local=*) cp -f "${repo/Local=/}/$arch/$dpackage/$todownload" "$tmpdir"/; ! [ "$?" = "0" ] && cp -f "${repo/Local=/}/all/$dpackage/$todownload" "$tmpdir"/ && success="true";;
+				GithubRepo=*) wget -q https://raw.githubusercontent.com/"${repo/GithubRepo=/}"/master/"$arch"/"$dpackage"/"$todownload" -O "$tmpdir"/"$todownload" && success="true"; ! [ "$?" = "0" ] && wget -q https://raw.githubusercontent.com/"${repo/GithubRepo=/}"/master/all/"$dpackage"/"$todownload" -O "$tmpdir"/"$todownload" && success="true";;
+				Local=*) cp -f "${repo/Local=/}/$arch/$dpackage/$todownload" "$tmpdir"/ && success="true"; ! [ "$?" = "0" ] && cp -f "${repo/Local=/}/all/$dpackage/$todownload" "$tmpdir"/ && success="true";;
 			esac
 		done < $repofile
 	done
