@@ -122,8 +122,8 @@ pinstall() {
 			case $pm in
 				apt|apt-get|yum|dnf|eopkg|zypper) sudo "$pm" install $packages $switches && if [ -z "$depinstall" ]; then success; else depsuccess="true"; break; fi;;
 				pkg) "$pm" install $packages $switches && if [ -z "$depinstall" ]; then success; else depsuccess="true"; break; fi;;
-				pacman) sudo "$pm" -S $packages $switches && if [ -z "$depinstall" ]; then success; else depsuccess="true"; break; fi;;
-				yaourt|yay) "$pm" -S $packages $switches && if [ -z "$depinstall" ]; then success; else depsuccess="true"; break; fi;;
+				pacman) sudo "$pm" -S $packages $switches --needed && if [ -z "$depinstall" ]; then success; else depsuccess="true"; break; fi;;
+				yaourt|yay) "$pm" -S $packages $switches --needed && if [ -z "$depinstall" ]; then success; else depsuccess="true"; break; fi;;
 				apk) sudo "$pm" add $packages $switches && if [ -z "$depinstall" ]; then success; else depsuccess="true"; break; fi;;
 			esac
 			echo -e "$warnPrefix $pm failed."
