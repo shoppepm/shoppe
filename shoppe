@@ -106,7 +106,7 @@ fetch() {
 		while IFS="" read -r repo; do
 			case $repo in
 				GithubRepo=*) wget -q https://raw.githubusercontent.com/"${repo/GithubRepo=/}"/master/"$arch"/"$dpackage"/"$todownload" -O "$tmpdir"/"$todownload" && success="true"; ! [ "$?" = "0" ] && wget -q https://raw.githubusercontent.com/"${repo/GithubRepo=/}"/master/all/"$dpackage"/"$todownload" -O "$tmpdir"/"$todownload" && success="true";;
-				Local=*) cp -f "${repo/Local=/}/$arch/$dpackage/$todownload" "$tmpdir"/ && success="true"; ! [ "$?" = "0" ] && cp -f "${repo/Local=/}/all/$dpackage/$todownload" "$tmpdir"/ && success="true";;
+				Local=*) cp -f "${repo/Local=/}/$arch/$dpackage/$todownload" "$tmpdir"/ &>/dev/null && success="true"; ! [ "$?" = "0" ] && cp -f "${repo/Local=/}/all/$dpackage/$todownload" "$tmpdir"/ &>/dev/null && success="true";;
 			esac
 		done < $repofile
 	done
