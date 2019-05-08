@@ -217,7 +217,7 @@ premove() {
 		let currentpack++
 		if grep "^$package " "$packagefile" &>/dev/null; then
 			! [ "$1" = "up" ] && echo -e "$infoPrefix Removing package $package..."
-			xargs sudo rm -f < "$packinfodir/$package"
+			xargs sudo rm -rf < "$packinfodir/$package"
 			grep -v "^$package " "$packagefile" > "${packagefile}-tmp"
 			mv -f "${packagefile}-tmp" "$packagefile"
 			rm "$packinfodir/$package"
