@@ -85,7 +85,7 @@ yesno() {
 		echo "$yesnotxt$1"
 		choice="$1"
 	fi
-	if [[ "$choice" == "Y" ]] || [[ "$choice" == "y" ]]; then choice="yes"; else choice="no"; fi
+	if [[ "$choice" == "Y" || "$choice" == "y" ]]; then choice="yes"; else choice="no"; fi
 }
 
 getpkg() {
@@ -386,6 +386,7 @@ for switch in $shoppeswitches; do
 		"+noconfirm"|"+nc") noconfirm="true";;
 		"+rawquery"|"+rq") rawquery="true";;
 		"+forcebuild"|"+fb") nobuild="false";;
+		"+packagemake"|"+pm") packagemake="true"; nobuild="false";;
 	esac
 done
 for switch in $switches; do
