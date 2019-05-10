@@ -160,7 +160,7 @@ pinstall() {
 				if [[ "$makedepends" ]]; then depinstall="true"; packages="$makedepends"; pinstall; depsuccess="false"; fi
 				if [[ "$depends" ]]; then depinstall="true"; packages="$depends"; pinstall; depsuccess="false"; fi
 				if ! [[ "$nobuild" == "true" ]]; then
-					echo -e "$infoPrefix Buidling..."
+					echo -e "$infoPrefix Building..."
 					type -t shoppebuild &>/dev/null && shoppebuild
 					echo -e "$infoPrefix Installing..."
 					type -t shoppeinstall &>/dev/null && shoppeinstall
