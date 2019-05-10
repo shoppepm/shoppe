@@ -165,15 +165,17 @@ pinstall() {
 					echo -e "$infoPrefix Installing..."
 					type -t shoppeinstall &>/dev/null && shoppeinstall
 				fi
-				[[ "$nobuild" == "true" ]] && tar -xzf content.tar.gz -C content
+				[[ "$nobuild" == "true" ]] && tar -xzf content.tar.gz
 				type -t shoppepostinstall &>/dev/null && shoppepostinstall
 				sudo cp -rf "$tmpdir/content"/* /
 				cd "$tmpdir/content"
 				shopt -s globstar
 				for file in "$tmpdir/content"/**; do
-				    ! [ -d "$file" ] && echo "${file/$PWD/}" >> "$packinfodir/$name"
+				    [[ ! -d "$file" ]] && echo "${file/$PWD/}" >> "$packinfodir/$name"
 				done
 				shopt -u globstar
+				cd ..
+				[[ "$packagemake" == "true" ]] && tar -zcvf "$HOME/$name.tar.gz" content && echo -e "$infoPrefix Saved compressed package as \e[1m$HOME/$name.tar.gz\e[0m."
 				# NOTE: Bash <4 friendly method:
 				# find ./ -type f | cut -c2- > $packinfodir/$name
 				if [[ "$currentsuccess" == "1" ]] && ! [[ "$alreadyinstalled" = "true" ]]; then
