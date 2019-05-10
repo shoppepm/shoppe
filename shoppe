@@ -26,10 +26,6 @@ warnPrefix="$(color 3)~!$(color r)"
 errorPrefix="$(color 1)!!$(color r)"
 debugPrefix="$(color 5)~~$(color r)"
 
-debugprint() {
-	[[ "$debug" == "true" ]] && echo -e "$debugPrefix $*"
-}
-
 echo -e "$debugPrefix shoppe version $version, architecture: $arch"
 
 # Don't run shoppe as root!
@@ -56,7 +52,6 @@ supportedManagers="pkg apt apt-get yum dnf pacman yaourt pacaur yay apk eopkg zy
 for pm in $supportedManagers; do
 	if command -v "$pm" &>/dev/null; then
 		installed="$installed $pm"
-		debugprint "Found $pm."
 	fi
 done
 
@@ -116,7 +111,7 @@ fetch() {
 pinstall() {
 	depsuccess="false"
 	if [[ -z "$packages" ]]; then echo -e "$errorPrefix Nothing to install!"; exit 2; fi
-	if ! [[ "$skipfrontend" == "true" ]]; then
+	if [[ "$skipfrontend" != "true" ]]; then
 		for pm in $installed; do
 			echo -e "$infoPrefix Using $pm..."
 			case $pm in
@@ -129,7 +124,7 @@ pinstall() {
 			echo -e "$warnPrefix $pm failed."
 		done
 	fi
-	if ! [[ "$depsuccess" == "true" ]]; then
+	if [[ "$depsuccess" != "true" ]]; then
 		echo -e "$infoPrefix Searching on shoppe repos..."
 		currentpack=0
 		success=0
@@ -144,10 +139,10 @@ pinstall() {
 			clashes="false"
 			rm -rf "$tmpdir"
 			mkdir "$tmpdir"
-			! [[ "$1" == "up" ]] && echo -e "$infoPrefix Installing $package..."
+			[[ "$1" != "up" ]] && echo -e "$infoPrefix Installing $package..."
 			let currentpack++
-			if ! [[ "$1" == "up" ]]; then echo -e "$infoPrefix Fetching package..."; fetch; fi
-			if ! [[ "$success" == "true" ]]; then echo -e "$errorPrefix Could not fetch package: $package"; continue; fi
+			if [[ "$1" != "up" ]]; then echo -e "$infoPrefix Fetching package..."; fetch; fi
+			if [[ "$success" != "true" ]]; then echo -e "$errorPrefix Could not fetch package: $package"; continue; fi
 			cd "$tmpdir"
 			source shoppepkg
 			if [[ "$conflicts" ]]; then
@@ -156,10 +151,10 @@ pinstall() {
 				done
 			fi
 			if [[ "$clashes" == "false" ]]; then
-				if ! [[ -s "content.tar.gz" ]]; then echo -e "$warnPrefix No prebuilt files found, defaulting to build mode..." && nobuild="false"; fi
+				if [[ ! -s "content.tar.gz" ]]; then echo -e "$warnPrefix No prebuilt files found, defaulting to build mode..." && nobuild="false"; fi
 				if [[ "$makedepends" ]]; then depinstall="true"; packages="$makedepends"; pinstall; depsuccess="false"; fi
 				if [[ "$depends" ]]; then depinstall="true"; packages="$depends"; pinstall; depsuccess="false"; fi
-				if ! [[ "$nobuild" == "true" ]]; then
+				if [[ "$nobuild" != "true" ]]; then
 					echo -e "$infoPrefix Building..."
 					type -t shoppebuild &>/dev/null && shoppebuild
 					echo -e "$infoPrefix Installing..."
@@ -182,7 +177,7 @@ pinstall() {
 					# shellcheck disable=SC2154
 					echo "$name $revision" >> $packagefile
 				fi
-				if ! [[ "$1" == "up" ]]; then
+				if [[ "$1" != "up" ]]; then
 					nopt=0
 					for opt in $optional; do
 						let nopt++
@@ -191,18 +186,18 @@ pinstall() {
 				fi
 			fi
 		done
-		if ! [[ "$success" == "$currentpack" ]]; then
+		if [[ "$success" != "$currentpack" ]]; then
 			echo -e "$errorPrefix Failed to install some packages. Double check your spelling."
 			exit 1
 		else
-			! [[ "$1" == "up" ]] && echo -e "$infoPrefix Installed succesfully." && exit 0
+			[[ "$1" != "up" ]] && echo -e "$infoPrefix Installed succesfully." && exit 0
 		fi
 	fi
 }
 
 premove() {
 	if [[ -z "$packages" ]]; then echo -e "$errorPrefix Nothing to remove!"; exit 2; fi
-	if ! [[ "$skipfrontend" == "true" ]]; then
+	if [[ "$skipfrontend" != "true" ]]; then
 		for pm in $installed; do
 			echo -e "$infoPrefix Using $pm..."
 			case $pm in
@@ -219,7 +214,7 @@ premove() {
 	for package in $packages; do
 		let currentpack++
 		if grep "^$package " "$packagefile" &>/dev/null; then
-			! [ "$1" = "up" ] && echo -e "$infoPrefix Removing package $package..."
+			[[ "$1" != "up" ]] && echo -e "$infoPrefix Removing package $package..."
 			xargs sudo rm -f < "$packinfodir/$package"
 			grep -v "^$package " "$packagefile" > "${packagefile}-tmp"
 			mv -f "${packagefile}-tmp" "$packagefile"
@@ -229,16 +224,16 @@ premove() {
 			name=""
 		fi
 	done
-	if ! [ "$success" = "$currentpack" ]; then
+	if [[ "$success" != "$currentpack" ]]; then
 		echo -e "$errorPrefix Failed to remove some packages. Double check your spelling."
 		exit 1
 	else
-		! [ "$1" = "up" ] && echo -e "$infoPrefix Removed succesfully." && exit 0
+		[[ "$1" != "up" ]] && echo -e "$infoPrefix Removed succesfully." && exit 0
 	fi
 }
 
 pupgrade() {
-	if ! [ "$skipfrontend" = "true" ]; then
+	if [[ "$skipfrontend" != "true" ]]; then
 		for pm in $installed; do
 			echo -e "$infoPrefix Using $pm..."
 			case $pm in
@@ -258,7 +253,7 @@ pupgrade() {
 		cd "$tmpdir"
 		source shoppepkg
 		oldver="$(echo "$package" | sed "s/$name//g")"
-		if [ "$revision" = "rolling" ] || [ $revision -gt $oldver ]; then
+		if [[ "$revision" = "rolling" || $revision -gt $oldver ]]; then
 			echo -e "$infoPrefix Upgrading $package..."
 			skipfrontend="true"
 			packages="$package" premove up
@@ -269,7 +264,7 @@ pupgrade() {
 			name=""
 		fi
 	done < $packagefile
-	if [ "$success" = "$currentpack" ] || [ "$success" -gt "$currentpack" ]; then
+	if [[ "$success" = "$currentpack" || "$success" -gt "$currentpack" ]]; then
 		echo -e "$infoPrefix Upgraded succesfully."
 		exit 0
 	else
@@ -279,7 +274,7 @@ pupgrade() {
 }
 
 pupdate() {
-	if ! [ "$skipfrontend" = "true" ]; then
+	if [[ "$skipfrontend" != "true" ]]; then
 		for pm in $installed; do
 			echo -e "$infoPrefix Using $pm..."
 			case $pm in
@@ -297,7 +292,7 @@ pupdate() {
 }
 
 pquery-info() {
-	if [ -z "${packages/$querycommand/}" ]; then
+	if [[ -z "${packages/$querycommand/}" ]]; then
 		echo -e "$errorPrefix Nothing to query!"
 		echo -e "$errorPrefix Available options: query info packages, query info installed"
 		exit 2
@@ -305,7 +300,7 @@ pquery-info() {
 	echo -e "$warnPrefix TODO: Frontend support. Currently this only searches for shoppe packages."
 	packages="${packages/$querycommand/}"
 	packages=$(echo "$packages" | sed -e 's/^[ \t]*//')
-	if [ "$packages" = "installed" ]; then
+	if [[ "$packages" == "installed" ]]; then
 		packages=""
 		while IFS="" read -r package; do
 			packages="$packages $(echo $package | sed 's/\s.*$//')"
@@ -329,7 +324,7 @@ pquery-info() {
 }
 
 pquery-packcount() {
-	if ! [ "$rawquery" = "true" ]; then
+	if [[ "$rawquery" != "true" ]]; then
 		echo -e "$warnPrefix TODO: Frontend support. Currently this only searches for shoppe packages."
 		echo "Package count: $(wc -l $packagefile | awk '{ print $1 }')"
 	else
@@ -338,7 +333,7 @@ pquery-packcount() {
 }
 
 pquery-list() {
-	if ! [ "$rawquery" = "true" ]; then
+	if [[ "$rawquery" != "true" ]]; then
 		echo -e "$warnPrefix TODO: Frontend support. Currently this only searches for shoppe packages."
 		cat $packagefile
 	else
@@ -347,7 +342,7 @@ pquery-list() {
 }
 
 pquery() {
-	if [ -z "$querycommand" ]; then
+	if [[ -z "$querycommand" ]]; then
 		echo -e "$errorPrefix No query command given!"
 		echo -e "$errorPrefix Available query commands: info, packcount, list"
 		exit 2
@@ -377,8 +372,7 @@ done
 command=$(echo "$command" | sed -e 's/^[ \t]*//')
 packages=$(echo "$packages" | sed -e 's/^[ \t]*//')
 switches=$(echo "$switches" | sed -e 's/^[ \t]*//')
-debugprint "$command $packages [$switches]"
-if [ -z $command ]; then
+if [[ -z $command ]]; then
 	echo -e "$errorPrefix Nothing to do!"
 	exit 1
 fi
