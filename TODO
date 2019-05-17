@@ -1,2 +1,2 @@
-- {SOFTWARE} [!! ] Add frontend to query functions and the fetch function
-- {FRONTEND} [!  ] Make AUR helpers remove pacman from available pms
+{Software} [!! ] Move frontend to a separate file
+{Software} [!  ] Better package creation tools

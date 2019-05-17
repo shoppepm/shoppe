@@ -297,7 +297,6 @@ pquery-info() {
 		echo -e "$errorPrefix Available options: query info packages, query info installed"
 		exit 2
 	fi
-	echo -e "$warnPrefix TODO: Frontend support. Currently this only searches for shoppe packages."
 	packages="${packages/$querycommand/}"
 	packages=$(echo "$packages" | sed -e 's/^[ \t]*//')
 	if [[ "$packages" == "installed" ]]; then
@@ -325,7 +324,6 @@ pquery-info() {
 
 pquery-packcount() {
 	if [[ "$rawquery" != "true" ]]; then
-		echo -e "$warnPrefix TODO: Frontend support. Currently this only searches for shoppe packages."
 		echo "Package count: $(wc -l $packagefile | awk '{ print $1 }')"
 	else
 		wc -l $packagefile | awk '{ print $1 }'
@@ -334,7 +332,6 @@ pquery-packcount() {
 
 pquery-list() {
 	if [[ "$rawquery" != "true" ]]; then
-		echo -e "$warnPrefix TODO: Frontend support. Currently this only searches for shoppe packages."
 		cat $packagefile
 	else
 		cat $packagefile
@@ -356,7 +353,6 @@ pquery() {
 }
 
 pfetch() {
-	echo -e "$warnPrefix TODO: Frontend support. Currently this only fetches Shoppe packages."
 	echo -e "$infoPrefix Packages will be saved in ~/.shoppe-output."
 	rm -rf ~/.shoppe-output
 	mkdir ~/.shoppe-output
