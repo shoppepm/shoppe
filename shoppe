@@ -355,6 +355,22 @@ pquery() {
 	fi
 }
 
+pfetch() {
+	echo -e "$warnPrefix TODO: Frontend support. Currently this only fetches Shoppe packages."
+	echo -e "$infoPrefix Packages will be saved in ~/.shoppe-output."
+	rm -rf ~/.shoppe-output
+	mkdir ~/.shoppe-output
+	for package in $packages; do
+		rm -rf "$tmpdir"
+		mkdir "$tmpdir"
+		fetch
+		mkdir "$HOME/.shoppe-output/$package"
+		mv "$tmpdir/shoppepkg" "$HOME/.shoppe-output/$package/"
+		[[ -e "$tmpdir/content.tar.gz" ]] && mv "$tmpdir/content.tar.gz" "$HOME/.shoppe-output/$package"
+		echo -e "$infoPrefix Fetched $package."
+	done
+}
+
 # Parse options.
 for parse in "$@"; do
 	case $parse in
@@ -362,7 +378,7 @@ for parse in "$@"; do
 		'remove') command="remove";;
 		'update') command="update";;
 		'upgrade') command="upgrade";;
-#		'fetch') command="fetch";;
+		'fetch') command="fetch";;
 		'query') command="query"; querycommand="$2";;
 		-*) switches="$switches $parse";;
 		+*) shoppeswitches="$shoppeswitches $parse";;
