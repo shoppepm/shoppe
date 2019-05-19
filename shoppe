@@ -26,8 +26,6 @@ warnPrefix="$(color 3)~!$(color r)"
 errorPrefix="$(color 1)!!$(color r)"
 debugPrefix="$(color 5)~~$(color r)"
 
-echo -e "$debugPrefix shoppe version $version, architecture: $arch"
-
 # Don't run shoppe as root!
 if [[ "$EUID" -eq 0 ]]; then echo -e "$errorPrefix Don't run shoppe as root!"; exit 4; fi
 
