@@ -38,7 +38,7 @@ tmpdir="$configdir/tmp"
 
 # Create shoppe files
 ! [[ -e "$configdir" ]] && mkdir -p "$configdir"
-! [[ -e "$repofile" ]] && echo "GithubRepo=knuxify/shoppe-repos" > "$repofile"
+! [[ -e "$repofile" ]] && echo "GithubRepo=shoppepm/shoppe-repos" > "$repofile"
 ! [[ -e "$packinfodir" ]] && mkdir "$packinfodir"
 
 # TODO package managers
@@ -290,12 +290,12 @@ pupdate() {
 }
 
 pquery-info() {
-	if [[ -z "${packages/$querycommand/}" ]]; then
+	if [[ -z "${packages/$subcommand/}" ]]; then
 		echo -e "$errorPrefix Nothing to query!"
 		echo -e "$errorPrefix Available options: query info packages, query info installed"
 		exit 2
 	fi
-	packages="${packages/$querycommand/}"
+	packages="${packages/$subcommand/}"
 	packages=$(echo "$packages" | sed -e 's/^[ \t]*//')
 	if [[ "$packages" == "installed" ]]; then
 		packages=""
@@ -337,12 +337,12 @@ pquery-list() {
 }
 
 pquery() {
-	if [[ -z "$querycommand" ]]; then
+	if [[ -z "$subcommand" ]]; then
 		echo -e "$errorPrefix No query command given!"
 		echo -e "$errorPrefix Available query commands: info, packcount, list"
 		exit 2
 	else
-		case $querycommand in
+		case $subcommand in
 			'info') pquery-info;;
 			'packcount') pquery-packcount;;
 			'list') pquery-list;;
@@ -366,14 +366,19 @@ pfetch() {
 }
 
 # Parse options.
-for parse in "$@"; do
-	case $parse in
+case $1 in
 		'install') command="install";;
 		'remove') command="remove";;
 		'update') command="update";;
 		'upgrade') command="upgrade";;
 		'fetch') command="fetch";;
-		'query') command="query"; querycommand="$2";;
+		'query') command="query"; subcommand="$2";;
+		'pkgtools') command="pkgtools"; subcommand="$2";;
+esac
+nocmd="${*/$command/}"
+nocmd="${nocmd/$subcommand/}"
+for parse in $nocmd; do
+	case $parse in
 		-*) switches="$switches $parse";;
 		+*) shoppeswitches="$shoppeswitches $parse";;
 		*) packages="$packages $parse";;
