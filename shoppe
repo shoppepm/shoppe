@@ -87,6 +87,8 @@ getpkg() {
 		git) mkdir "$name"; git clone "$source" "$name";;
 		git-tag) mkdir "$name"; git clone --branch "$tag" "$source" "$name";;
 		tar) mkdir "$name"; cd "$name"; wget "$source"; tar xvf ./*; cd ..;;
+		targz) mkdir "$name"; cd "$name"; wget "$source"; tar xzf ./*; cd ..;;
+		gz) mkdir "$name"; cd "$name"; wget "$source"; gunzip ./*; cd ..;;
 		#compressed) mkdir "$name"; cd "$name"; wget "$source"; tar xzf ./*; cd ..;;
 	esac
 }
