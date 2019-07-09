@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+
+# Shoppe packaging utilities
+# Maintained by knuxify
+
+options="check"
+
+errorPrefix="\e[91m[E]\e[0m"
+warnPrefix="\e[93m[W]\e[0m"
+
+[[ -z "$*" ]] && echo "No command given! Available options: $options" && exit 1
+
+pkgcheck() {
+	[[ -z "$*" ]] && echo "No file provided! Usage: check [FILE]" && exit 2
+	[[ ! -e "$*" ]] && echo "Bad file provided, or file doesn't exist! Usage: check [FILE]" && exit 2
+
+	! grep -q "pkgname=" "$*" && echo -e "$errorPrefix Package name not present! Set the 'pkgname' variable." && let errors++
+	! grep -q "pkgdesc=" "$*" && echo -e "$errorPrefix Package description not present! Set the 'pkgdesc' variable." && let errors++
+	! grep -q "pkgver=" "$*" && echo -e "$errorPrefix Packaged software version not present! Set the 'pkgver' variable." && let errors++
+	! grep -q "pkgarch=" "$*" && echo -e "$errorPrefix Package architecture not present! Set the 'pkgarch' variable." && let errors++
+	! grep -q "revision=" "$*" && echo -e "$errorPrefix Package revision not present! Set the 'revision' variable." && let errors++
+	grep -q "pkgarch=\"all\"" "$*" && ! grep -q "archdependent=" "$*" && echo -e "$warnPrefix The architecture is set to 'all', but the 'archdependent' variable is not set. This defaults to 'true'."
+	! grep -q "source=" "$*" && echo -e "$errorPrefix No source provided!" && let errors++
+	grep -q "source=" "$*" && ! grep -q "sourcetype=" "$*" && echo -e "$errorPrefix No source type provided!" && let errors++
+	! grep -q "shoppeinstall" "$*" && echo -e "$errorPrefix shoppeinstall function is not defined!" && let errors++
+	! grep -q "shoppebuild" "$*" && echo -e "$warnPrefix shoppebuild function is not defined. It will be skipped."
+	[[ "$errors" -gt "0" ]] && echo -e "$warnPrefix Errors detected. Make sure to check the wiki page about creating packages: https://github.com/shoppepm/shoppe/wiki/Creating-a-package" && exit 1
+	echo "No errors detected!" && exit 0
+}
+
+pkgcreate() {
+	[[ -e "./shoppepkg" ]] && echo -e "$errorPrefix A file named 'shoppepkg' already exists in the current directory." && exit 2
+	read -rel "Enter package name: " pkgname
+	read -rel "Enter short package description (do not add a dot to the end):" pkgdesc
+	read -rel "Enter app version: " pkgver
+	until [[ "$sourcetype" == "git" ]] || [[ "$sourcetype" == "git-tag" ]] || [[ "$sourcetype" == "tar" ]] || [[ "$sourcetype" == "targz" ]] || [[ "$sourcetype" == "gz" ]] || [[ "$sourcetype" == "tarxz" ]] || [[ "$sourcetype" == "custom" ]]; do
+		read -rel "Pick the source type (git, git-tag, tar, targz, gz, tarxz, custom): " sourcetype
+	done
+	[[ "$sourcetype" == "git" ]] || [[ "$sourcetype" == "$git-tag" ]] && read -rel "Enter git repo link: " source
+	[[ "$sourcetype" == "git-tag" ]] && read -rel "Enter git repo tag or branch name: " tag
+	[[ "$sourcetype" == "tar" ]] || [[ "$sourcetype" == "targz" ]] || [[ "$sourcetype" == "gz" ]] || [[ "$sourcetype" == "tarxz" ]] && read -rel "Enter direct download link for the archive: " source
+	touch ./shoppepkg
+	echo "pkgname=\"$pkgname\"" >> ./shoppepkg
+	echo "pkgdesc=\"$pkgdesc\"" >> ./shoppepkg
+	echo "pkgver=\"$pkgver\"" >> ./shoppepkg
+	if [[ "$pkgver" == "rolling" ]]; then
+		echo "revision=\"rolling\""
+	else
+		echo "revision=\"1\""
+	fi
+	echo "sourcetype=\"$sourcetype\"" >> ./shoppepkg
+	echo "source=\"$source\"" >> ./shoppepkg
+	[[ "$sourcetype" == "git-tag" ]] && echo "tag=\"$tag\"" >> ./shoppepkg
+	echo "Your package was saved as shoppepkg. Add everything else as described here: https://github.com/shoppepm/shoppe/wiki/Creating-a-package"
+	exit 0
+}
+
+case $1 in
+	check) pkgcheck "${@:2}";;
+	create) pkgcreate;;
+# TODO:
+#	tuicreate) tuicreate;; # Creator TUI with dialog
+#	convert) pkgconvert ${@:2};; # Convert alpine/arch packages to shoppe
+esac
