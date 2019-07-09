@@ -64,7 +64,7 @@ done
 success() {
 	echo "$infoPrefix Success!"
 	# shellcheck disable=SC2154
-	if [[ -z "$name" ]]; then exit 0; else let success++; currentsuccess="1"; fi
+	if [[ -z "$pkgname" ]]; then exit 0; else let success++; currentsuccess="1"; fi
 }
 
 yesno() {
@@ -84,10 +84,10 @@ yesno() {
 getpkg() {
 	# shellcheck disable=SC2154
 	case $sourcetype in
-		git) mkdir "$name"; git clone "$source" "$name";;
-		git-tag) mkdir "$name"; git clone --branch "$tag" "$source" "$name";;
-		tar) mkdir "$name"; cd "$name"; wget "$source"; tar xvf ./*; cd ..;;
-		#compressed) mkdir "$name"; cd "$name"; wget "$source"; tar xzf ./*; cd ..;;
+		git) mkdir "$pkgname"; git clone "$source" "$pkgname";;
+		git-tag) mkdir "$pkgname"; git clone --branch "$tag" "$source" "$pkgname";;
+		tar) mkdir "$pkgname"; cd "$pkgname"; wget "$source"; tar xvf ./*; cd ..;;
+		#compressed) mkdir "$pkgname"; cd "$pkgname"; wget "$source"; tar xzf ./*; cd ..;;
 	esac
 }
 
@@ -98,8 +98,8 @@ fetch() {
 	for todownload in shoppepkg 'content.tar.gz'; do
 		while IFS="" read -r repo; do
 			case $repo in
-				GithubRepo=*) wget -q https://raw.githubusercontent.com/"${repo/GithubRepo=/}"/master/"$arch"/"$dpackage"/"$todownload" -O "$tmpdir"/"$todownload" && success="true"; ! [[ "$?" == "0" ]] && wget -q https://raw.githubusercontent.com/"${repo/GithubRepo=/}"/master/all/"$dpackage"/"$todownload" -O "$tmpdir"/"$todownload" && success="true";;
-				Local=*) cp -f "${repo/Local=/}/$arch/$dpackage/$todownload" "$tmpdir"/ &>/dev/null && success="true"; ! [[ "$?" == "0" ]] && cp -f "${repo/Local=/}/all/$dpackage/$todownload" "$tmpdir"/ &>/dev/null && success="true";;
+				GithubRepo=*) wget -q https://raw.githubusercontent.com/"${repo/GithubRepo=/}"/master/"$dpackage"/"$todownload" -O "$tmpdir"/"$todownload" && success="true";;
+				Local=*) cp -f "${repo/Local=/}/$dpackage/$todownload" "$tmpdir"/ &>/dev/null && success="true";;
 			esac
 		done < $repofile
 	done
@@ -140,15 +140,21 @@ pinstall() {
 			[[ "$1" != "up" ]] && echo -e "$infoPrefix Installing $package..."
 			let currentpack++
 			if [[ "$1" != "up" ]]; then echo -e "$infoPrefix Fetching package..."; fetch; fi
-			if [[ "$success" != "true" ]]; then echo -e "$errorPrefix Could not fetch package: $package"; continue; fi
+			if [[ "$success" != "true" ]]; then echo -e "$errorPrefix Could not fetch package: $package. Make sure you did not misspell the name and that the package is available in the repos."; continue; fi
 			cd "$tmpdir"
 			source shoppepkg
+			if [[ "$pkgarch" != "all" ]]; then
+				for procarch in $pkgarch; do
+					[[ "$arch" == "$pkgarch" ]] && validarch="true"
+				done
+				[[ "$validarch" == "false" ]] && failure="true" && echo -e "$errorPrefix Package $pkgname does not support your current architecture (your arch is $arch and this package supports $pkgarch)."
+			fi
 			if [[ "$conflicts" ]]; then
 				for clash in $conflicts; do
-					grep "^$clash " "$packagefile" &>/dev/null && clashes="true" && echo -e "$errorPrefix $name clashes with $clash. Remove clashing packages to be able to install $name."
+					grep "^$clash " "$packagefile" &>/dev/null && failure="true" && echo -e "$errorPrefix $pkgname clashes with $clash. Remove clashing packages to be able to install $pkgname."
 				done
 			fi
-			if [[ "$clashes" == "false" ]]; then
+			if [[ "$failure" == "false" ]]; then
 				if [[ ! -s "content.tar.gz" ]]; then echo -e "$warnPrefix No prebuilt files found, defaulting to build mode..." && nobuild="false"; fi
 				if [[ "$makedepends" ]]; then depinstall="true"; packages="$makedepends"; pinstall; depsuccess="false"; fi
 				if [[ "$depends" ]]; then depinstall="true"; packages="$depends"; pinstall; depsuccess="false"; fi
@@ -164,16 +170,16 @@ pinstall() {
 				cd "$tmpdir/content"
 				shopt -s globstar
 				for file in "$tmpdir/content"/**; do
-				    [[ ! -d "$file" ]] && echo "${file/$PWD/}" >> "$packinfodir/$name"
+				    [[ ! -d "$file" ]] && echo "${file/$PWD/}" >> "$packinfodir/$pkgname"
 				done
 				shopt -u globstar
 				cd ..
-				[[ "$packagemake" == "true" ]] && tar -zcvf "$HOME/$name.tar.gz" content && echo -e "$infoPrefix Saved compressed package as \e[1m$HOME/$name.tar.gz\e[0m."
+				[[ "$packagemake" == "true" ]] && tar -zcvf "$HOME/$pkgname.tar.gz" content && echo -e "$infoPrefix Saved compressed package as \e[1m$HOME/$pkgname.tar.gz\e[0m."
 				# NOTE: Bash <4 friendly method:
-				# find ./ -type f | cut -c2- > $packinfodir/$name
+				# find ./ -type f | cut -c2- > $packinfodir/$pkgname
 				if [[ "$currentsuccess" == "1" ]] && ! [[ "$alreadyinstalled" = "true" ]]; then
 					# shellcheck disable=SC2154
-					echo "$name $revision" >> $packagefile
+					echo "$pkgname $revision" >> $packagefile
 				fi
 				if [[ "$1" != "up" ]]; then
 					nopt=0
@@ -250,7 +256,7 @@ pupgrade() {
 		fetch
 		cd "$tmpdir"
 		source shoppepkg
-		oldver="$(echo "$package" | sed "s/$name//g")"
+		oldver="$(echo "$package" | sed "s/$pkgname//g")"
 		if [[ "$revision" = "rolling" || $revision -gt $oldver ]]; then
 			echo -e "$infoPrefix Upgrading $package..."
 			skipfrontend="true"
@@ -311,8 +317,8 @@ pquery-info() {
 		cd "$tmpdir"
 		source shoppepkg
 		echo "==="
-		echo "$name - $desc"
-		echo "version: $version (package version $revision)"
+		echo "$pkgname - $pkgdesc"
+		echo "version: $pkgver (package version $revision)"
 		echo "Licenced under the $license license"
 		echo "Website: $website"
 		echo "Dependencies: $depends (make: $makedepends)"
