@@ -110,8 +110,8 @@ fetch() {
 	for todownload in shoppepkg 'content.tar.gz'; do
 		while IFS="" read -r repo; do
 			case $repo in
-				GithubRepo=*) wget -q https://raw.githubusercontent.com/"${repo/GithubRepo=/}"/master/"$dpackage"/"$todownload" -O "$tmpdir"/"$todownload" && success="true";;
-				Local=*) cp -f "${repo/Local=/}/$dpackage/$todownload" "$tmpdir"/ &>/dev/null && success="true";;
+				GithubRepo=*) wget -q "https://raw.githubusercontent.com/${repo/GithubRepo=/}/master/$dpackage/$todownload" -O "$tmpdir/$todownload" && success="true";;
+				Local=*) cp -f "${repo/Local=/}/$dpackage/$todownload" "$tmpdir/" &>/dev/null && success="true";;
 			esac
 		done < $repofile
 	done
