@@ -82,12 +82,22 @@ yesno() {
 }
 
 getpkg() {
+	if [[ "$sourcetype" == "compressed" ]]; then
+		case $source in
+			*.tar.gz) sourcetype="targz";;
+			*.tar) sourcetype="tar";;
+			*.gz) sourcetype="gz";;
+			*.tar.xz) sourcetype="tarxz";;
+		esac
+	fi
 	# shellcheck disable=SC2154
 	case $sourcetype in
-		git) mkdir "$pkgname"; git clone "$source" "$pkgname";;
-		git-tag) mkdir "$pkgname"; git clone --branch "$tag" "$source" "$pkgname";;
-		tar) mkdir "$pkgname"; cd "$pkgname"; wget "$source"; tar xvf ./*; cd ..;;
-		#compressed) mkdir "$pkgname"; cd "$pkgname"; wget "$source"; tar xzf ./*; cd ..;;
+		git) mkdir "$name"; git clone "$source" "$name";;
+		git-tag) mkdir "$name"; git clone --branch "$tag" "$source" "$name";;
+		tar) mkdir "$name"; cd "$name"; wget "$source"; tar xvf ./*; cd ..;;
+		targz) mkdir "$name"; cd "$name"; wget "$source"; tar xzf ./*; cd ..;;
+		gz) mkdir "$name"; cd "$name"; wget "$source"; gunzip ./*; cd ..;;
+		tarxz) mkdir "$name"; cd "$name"; wget "$source"; tar xJf ./*; cd ..;;
 	esac
 }
 
