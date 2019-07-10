@@ -156,6 +156,7 @@ pinstall() {
 			cd "$tmpdir"
 			source shoppepkg
 			if [[ "$pkgarch" != "all" ]]; then
+				validarch="false"
 				for procarch in $pkgarch; do
 					[[ "$arch" == "$pkgarch" ]] && validarch="true"
 				done
