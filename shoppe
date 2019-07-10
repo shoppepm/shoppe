@@ -76,7 +76,7 @@ yesno() {
 	if [[ "$choice" == "Y" || "$choice" == "y" ]]; then choice="yes"; else choice="no"; fi
 }
 
-getsource() {
+getpkg() {
 	if [[ "$sourcetype" == "compressed" ]]; then
 		case $source in
 			*.tar.gz) sourcetype="targz";;
@@ -87,12 +87,12 @@ getsource() {
 	fi
 	# shellcheck disable=SC2154
 	case $sourcetype in
-		git) mkdir "$name"; git clone "$source" "$name";;
-		git-tag) mkdir "$name"; git clone --branch "$tag" "$source" "$name";;
-		tar) mkdir "$name"; cd "$name"; wget "$source"; tar xvf ./*; cd ..;;
-		targz) mkdir "$name"; cd "$name"; wget "$source"; tar xzf ./*; cd ..;;
-		gz) mkdir "$name"; cd "$name"; wget "$source"; gunzip ./*; cd ..;;
-		tarxz) mkdir "$name"; cd "$name"; wget "$source"; tar xJf ./*; cd ..;;
+		git) mkdir "$pkgname"; git clone "$source" "$pkgname";;
+		git-tag) mkdir "$pkgname"; git clone --branch "$tag" "$source" "$pkgname";;
+		tar) mkdir "$pkgname"; cd "$pkgname"; wget "$source"; tar xvf ./*; cd ..;;
+		targz) mkdir "$pkgname"; cd "$pkgname"; wget "$source"; tar xzf ./*; cd ..;;
+		gz) mkdir "$pkgname"; cd "$pkgname"; wget "$source"; gunzip ./*; cd ..;;
+		tarxz) mkdir "$pkgname"; cd "$pkgname"; wget "$source"; tar xJf ./*; cd ..;;
 	esac
 }
 
@@ -119,11 +119,11 @@ pinstall() {
 		for pm in $installed; do
 			echo -e "$infoPrefix Using $pm..."
 			case $pm in
-				apt|apt-get|yum|dnf|eopkg|zypper) sudo "$pm" install $packages $switches && break;;
-				pkg) "$pm" install $packages $switches && break;;
-				pacman) sudo "$pm" -S $packages $switches --needed && break;;
-				yaourt|yay) "$pm" -S $packages $switches --needed && break;;
-				apk) sudo "$pm" add $packages $switches && break;;
+				apt|apt-get|yum|dnf|eopkg|zypper) sudo "$pm" install $packages $switches && return 0;;
+				pkg) "$pm" install $packages $switches && return 0;;
+				pacman) sudo "$pm" -S $packages $switches --needed && return 0;;
+				yaourt|yay) "$pm" -S $packages $switches --needed && return 0;;
+				apk) sudo "$pm" add $packages $switches && return 0;;
 			esac
 			echo -e "$warnPrefix $pm failed."
 		done
@@ -167,7 +167,6 @@ pinstall() {
 		[[ "$depends" ]] && packages="$depends" pinstall
 		type -t shoppepreinstall &>/dev/null && echo -e "  - $infoPrefix Running pre-install..." && shoppepreinstall
 		if [[ "$nobuild" != "true" ]]; then
-			getsource
 			echo -e "  - $infoPrefix Building..."
 			type -t shoppebuild &>/dev/null && shoppebuild
 			echo -e "  - $infoPrefix Installing..."
@@ -270,8 +269,10 @@ pupgrade() {
 			packages="$package" pinstall up
 			echo -e "$infoPrefix Done!"
 			name="$package"
-			success
+			let success++
 			name=""
+		else
+			let success++
 		fi
 	done < $packagefile
 	if [[ "$success" = "$currentpack" || "$success" -gt "$currentpack" ]]; then
