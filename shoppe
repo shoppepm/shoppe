@@ -62,13 +62,6 @@ for pm in $unsupportedManagers; do
 	fi
 done
 
-# Helper functions.
-success() {
-	echo "$infoPrefix Success!"
-	# shellcheck disable=SC2154
-	if [[ -z "$pkgname" ]]; then exit 0; else let success++; currentsuccess="1"; fi
-}
-
 yesno() {
 	if ! [[ "$noconfirm" == "true" ]]; then
 		choice=null
@@ -83,7 +76,7 @@ yesno() {
 	if [[ "$choice" == "Y" || "$choice" == "y" ]]; then choice="yes"; else choice="no"; fi
 }
 
-getpkg() {
+getsource() {
 	if [[ "$sourcetype" == "compressed" ]]; then
 		case $source in
 			*.tar.gz) sourcetype="targz";;
@@ -107,108 +100,108 @@ fetch() {
 	# DEV NOTE: This is an internal function used to fetch packages.
 	# How to use: Use this when you need to fetch a package from a for loop (for package in $packages).
 	dpackage="$(echo $package | sed 's/\s.*$//')"
-	for todownload in shoppepkg 'content.tar.gz'; do
+	for todownload in 'content.tar.gz' shoppepkg; do
 		while IFS="" read -r repo; do
+			fetchfail=""
 			case $repo in
 				GithubRepo=*) wget -q "https://raw.githubusercontent.com/${repo/GithubRepo=/}/master/$dpackage/$todownload" -O "$tmpdir/$todownload" && success="true";;
 				Local=*) cp -f "${repo/Local=/}/$dpackage/$todownload" "$tmpdir/" &>/dev/null && success="true";;
 			esac
 		done < $repofile
+		[[ "$todownload" == "shoppepkg" ]] && [[ "$success" != "true" ]] && fetchfail="true" && echo -e "$errorPrefix Could not fetch package: $package. Check your spelling or add a repository that contains this package."
 	done
 }
 
 # Functions
 pinstall() {
-	depsuccess="false"
-	if [[ -z "$packages" ]]; then echo -e "$errorPrefix Nothing to install!"; exit 2; fi
-	if [[ "$skipfrontend" != "true" ]]; then
+	[[ -z "$packages" ]] && echo -e "$errorPrefix Nothing to install!" && exit 2
+	if [[ "$skipfrontend" != "true" ]] && [[ "$installed" ]]; then
 		for pm in $installed; do
 			echo -e "$infoPrefix Using $pm..."
 			case $pm in
-				apt|apt-get|yum|dnf|eopkg|zypper) sudo "$pm" install $packages $switches && if [[ -z "$depinstall" ]]; then success; else depsuccess="true"; break; fi;;
-				pkg) "$pm" install $packages $switches && if [[ -z "$depinstall" ]]; then success; else depsuccess="true"; break; fi;;
-				pacman) sudo "$pm" -S $packages $switches --needed && if [[ -z "$depinstall" ]]; then success; else depsuccess="true"; break; fi;;
-				yaourt|yay) "$pm" -S $packages $switches --needed && if [[ -z "$depinstall" ]]; then success; else depsuccess="true"; break; fi;;
-				apk) sudo "$pm" add $packages $switches && if [[ -z "$depinstall" ]]; then success; else depsuccess="true"; break; fi;;
+				apt|apt-get|yum|dnf|eopkg|zypper) sudo "$pm" install $packages $switches && break;;
+				pkg) "$pm" install $packages $switches && break;;
+				pacman) sudo "$pm" -S $packages $switches --needed && break;;
+				yaourt|yay) "$pm" -S $packages $switches --needed && break;;
+				apk) sudo "$pm" add $packages $switches && break;;
 			esac
 			echo -e "$warnPrefix $pm failed."
 		done
 	fi
-	if [[ "$depsuccess" != "true" ]]; then
-		echo -e "$infoPrefix Searching on shoppe repos..."
-		currentpack=0
-		success=0
-		currentsuccess=0
-		for package in $packages; do
-			if grep "^$package " "$packagefile" &>/dev/null; then
-				yesnotxt="$package is already installed! Install anyways? [y/N] "
-				yesno n
-				if [[ "$choice" == "no" ]]; then continue; else alreadyinstalled="true"; fi
-			fi
-			success="false"
-			clashes="false"
-			rm -rf "$tmpdir"
-			mkdir "$tmpdir"
-			[[ "$1" != "up" ]] && echo -e "$infoPrefix Installing $package..."
-			let currentpack++
-			if [[ "$1" != "up" ]]; then echo -e "$infoPrefix Fetching package..."; fetch; fi
-			if [[ "$success" != "true" ]]; then echo -e "$errorPrefix Could not fetch package: $package. Make sure you did not misspell the name and that the package is available in the repos."; continue; fi
-			cd "$tmpdir"
-			source shoppepkg
-			if [[ "$pkgarch" != "all" ]]; then
-				validarch="false"
-				for procarch in $pkgarch; do
-					[[ "$arch" == "$pkgarch" ]] && validarch="true"
-				done
-				[[ "$validarch" == "false" ]] && failure="true" && echo -e "$errorPrefix Package $pkgname does not support your current architecture (your arch is $arch and this package supports $pkgarch)."
-			fi
-			if [[ "$conflicts" ]]; then
-				for clash in $conflicts; do
-					grep "^$clash " "$packagefile" &>/dev/null && failure="true" && echo -e "$errorPrefix $pkgname clashes with $clash. Remove clashing packages to be able to install $pkgname."
-				done
-			fi
-			if [[ "$failure" == "false" ]]; then
-				if [[ ! -s "content.tar.gz" ]]; then echo -e "$warnPrefix No prebuilt files found, defaulting to build mode..." && nobuild="false"; fi
-				if [[ "$makedepends" ]]; then depinstall="true"; packages="$makedepends"; pinstall; depsuccess="false"; fi
-				if [[ "$depends" ]]; then depinstall="true"; packages="$depends"; pinstall; depsuccess="false"; fi
-				if [[ "$nobuild" != "true" ]]; then
-					echo -e "$infoPrefix Building..."
-					type -t shoppebuild &>/dev/null && shoppebuild
-					echo -e "$infoPrefix Installing..."
-					type -t shoppeinstall &>/dev/null && shoppeinstall
-				fi
-				[[ "$nobuild" == "true" ]] && tar -xzf content.tar.gz
-				type -t shoppepostinstall &>/dev/null && shoppepostinstall
-				sudo cp -rf "$tmpdir/content"/* /
-				cd "$tmpdir/content"
-				shopt -s globstar
-				for file in "$tmpdir/content"/**; do
-				    [[ ! -d "$file" ]] && echo "${file/$PWD/}" >> "$packinfodir/$pkgname"
-				done
-				shopt -u globstar
-				cd ..
-				[[ "$packagemake" == "true" ]] && tar -zcvf "$HOME/$pkgname.tar.gz" content && echo -e "$infoPrefix Saved compressed package as \e[1m$HOME/$pkgname.tar.gz\e[0m."
-				# NOTE: Bash <4 friendly method:
-				# find ./ -type f | cut -c2- > $packinfodir/$pkgname
-				if [[ "$currentsuccess" == "1" ]] && ! [[ "$alreadyinstalled" = "true" ]]; then
-					# shellcheck disable=SC2154
-					echo "$pkgname $revision" >> $packagefile
-				fi
-				if [[ "$1" != "up" ]]; then
-					nopt=0
-					for opt in $optional; do
-						let nopt++
-						echo "$opt:"; sed -n "$nopt,${nopt}p" optional
-					done
-				fi
-			fi
-		done
-		if [[ "$success" != "$currentpack" ]]; then
-			echo -e "$errorPrefix Failed to install some packages. Double check your spelling."
-			exit 1
-		else
-			[[ "$1" != "up" ]] && echo -e "$infoPrefix Installed succesfully." && exit 0
+	echo -e "$infoPrefix Searching on shoppe repositories..."
+	currentpack=0
+	installsuccess=0
+	for package in $packages; do
+		if grep "^$package " "$packagefile" &>/dev/null; then
+			yesnotxt="$package is already installed! Install anyways? [y/N] "
+			yesno n
+			if [[ "$choice" == "no" ]]; then continue; else alreadyinstalled="true"; fi
 		fi
+		rm -rf "$tmpdir"
+		mkdir "$tmpdir"
+		echo -e "$infoPrefix Installing $package..."
+		let currentpack++
+		echo -e "  - $infoPrefix Fetching package..."
+		fetch
+		[[ "$fetchfail" ]] && continue
+		[[ "$success" != "true" ]] && continue
+		cd "$tmpdir"
+		source shoppepkg
+		if [[ "$pkgarch" != "all" ]]; then
+			validarch="false"
+			for procarch in $pkgarch; do
+				[[ "$arch" == "$pkgarch" ]] && validarch="true"
+			done
+			[[ "$validarch" == "false" ]] && echo -e "$errorPrefix Package $pkgname does not support your current architecture (your arch is $arch and this package supports $pkgarch)." && continue
+		fi
+		conflictsfail=""
+		if [[ "$conflicts" ]]; then
+			for clash in $conflicts; do
+				grep "^$clash " "$packagefile" &>/dev/null && conflictsfail="true" && echo -e "$errorPrefix $pkgname clashes with $clash. Remove clashing packages to be able to install $pkgname."
+			done
+		fi
+		[[ "$conflictsfail" ]] && continue
+		currentsuccess=""
+		[[ ! -s "content.tar.gz" ]] && echo -e "$warnPrefix No prebuilt files found, defaulting to build mode..." && nobuild="false"
+		[[ "$makedepends" ]] && packages="$makedepends" pinstall
+		[[ "$depends" ]] && packages="$depends" pinstall
+		type -t shoppepreinstall &>/dev/null && echo -e "  - $infoPrefix Running pre-install..." && shoppepreinstall
+		if [[ "$nobuild" != "true" ]]; then
+			getsource
+			echo -e "  - $infoPrefix Building..."
+			type -t shoppebuild &>/dev/null && shoppebuild
+			echo -e "  - $infoPrefix Installing..."
+			type -t shoppeinstall &>/dev/null && shoppeinstall && currentsuccess="1"
+		fi
+		[[ "$nobuild" == "true" ]] && tar -xzf content.tar.gz && currentsuccess="1"
+		type -t shoppepostinstall &>/dev/null && echo -e "  - $infoPrefix Running post-install..." && shoppepostinstall && currentsuccess="1"
+		sudo cp -rf "$tmpdir/content"/* /
+		shopt -s globstar
+		for file in "$tmpdir/content"/**; do
+		    [[ ! -d "$file" ]] && echo "${file/$PWD/}" >> "$packinfodir/$pkgname"
+		done
+		shopt -u globstar
+		[[ "$packagemake" == "true" ]] && tar -zcvf "$HOME/$pkgname.tar.gz" content && echo -e "$infoPrefix Saved compressed package as \e[1m$HOME/$pkgname.tar.gz\e[0m."
+		# NOTE: Bash <4 friendly method:
+		# find ./ -type f | cut -c2- > $packinfodir/$pkgname
+		if [[ "$currentsuccess" == "1" ]] && ! [[ "$alreadyinstalled" = "true" ]]; then
+			# shellcheck disable=SC2154
+			echo "$pkgname $revision" >> $packagefile
+		fi
+		if [[ "$1" != "up" ]]; then
+			nopt=0
+			for opt in $optional; do
+				let nopt++
+				echo "$opt:"; sed -n "$nopt,${nopt}p" optional
+			done
+		fi
+		let installsuccess++
+	done
+	if [[ "$installsuccess" != "$currentpack" ]]; then
+		echo -e "$errorPrefix Failed to install some packages. Double check your spelling."
+		exit 1
+	else
+		echo -e "$infoPrefix Installed succesfully." && exit 0
 	fi
 }
 
