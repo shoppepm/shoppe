@@ -1,0 +1,222 @@
+#!/usr/bin/bash
+##
+## shoppe - a lightweight portable package manager that integrates with your current package manager
+##
+## Licensed under the MIT License
+
+## Code guidelines
+# Comments for sections will use double hash symbols.
+# Single comments will use single hash symbols.
+# Use if statements for longer commands and things that require if;else statements.
+# For small statements (usually under 3 longer commands) use [[ statement ]] && command1 && command2
+# Do not leave empty lines after comments, unless the comments are important in some way.
+
+## TODO
+# More authentication methods for commands that use sudo
+# Removal
+# Upgrades
+# The Frontend:tm:
+# Package search
+# Better documentation on getting started
+# Fix package installation order (dependencies first, full packages last)
+
+### BEGIN CODE ###
+
+## Architecture detection.
+arch="$(uname -m)"
+# Some architectures are mostly the same, and major package managers
+# will consider them as the same architecture, so we follow suit.
+[[ "$arch" = "i"*"86" ]] && arch="i686"
+
+## Prefixes
+# These are used to prefix command output.
+p_info="\033[34m::\033[0m"
+p_warn="\033[33m!!\033[0m"
+p_error="\033[31m!!\033[0m"
+p_debug="\033[35m~!\033[0m"
+
+## Warn when running as root.
+[[ "$EUID" -eq 0 ]] && echo -e "$p_warn Please refrain from using shoppe as root. Things will most likely break."
+
+## Configuration. This is overwritten by the main config file ($configdir/config)
+configdir="$HOME/.config/shoppe"
+repofile="$configdir/repositories"
+pkglist="$configdir/pkglist"
+pkginfo="$configdir/pkginfo"
+tmpdir="$configdir/tmp"
+
+[[ -e "$configdir/config" ]] && source "$configdir/config"
+[[ ! -e "$configdir/repodata" ]] && mkdir "$configdir/repodata"
+[[ ! -e "$repofile" ]] && echo "http: https://raw.githubusercontent.com/shoppepm/shoppe-repos/master" > "$repofile"
+
+## Helper functions
+yesno() {
+    if ! [[ "$noconfirm" == "true" ]]; then
+        choice=null
+        until [[ "$choice" == "y" ]] || [[ "$choice" == "Y" ]] || [[ "$choice" == "n" ]] || [[ "$choice" == "N" ]]; do
+            read -p "$yesnotxt" -ren1 choice
+            if [ -z "$choice" ]; then choice="$1"; fi
+        done
+    else
+        echo "$yesnotxt$1"
+        choice="$1"
+    fi
+    if [[ "$choice" == "Y" || "$choice" == "y" ]]; then choice="yes"; else choice="no"; fi
+}
+
+get_source() {
+    if [[ "$sourcetype" == "compressed" ]]; then
+        case $source in
+            *.tar.gz) sourcetype="targz";;
+            *.tar) sourcetype="tar";;
+            #*.gz) sourcetype="gz";;
+            *.tar.xz) sourcetype="tarxz";;
+        esac
+    fi
+    # shellcheck disable=SC2154
+    case $sourcetype in
+        git) git clone "$source" "source";;
+        git-tag) git clone --branch "$tag" "$source" "source";;
+        tar) wget "$source"; tar xvf ./* -C source;;
+        targz) wget "$source"; tar xzf ./* -C source;;
+        #gz) wget "$source"; gunzip ./*;;
+        tarxz) wget "$source"; tar xJf ./* -C source;;
+    esac
+}
+
+
+## Main functions
+
+# Install packages.
+shoppe_install() {
+	# Usage: installs packages specified in the $packages variable.
+	echo -e "$p_info Searching on shoppe repositories..."
+	rm -rf "$tmpdir"
+	mkdir "$tmpdir"
+	[[ ! -e "$configdir/repodata/1" ]] && echo -e "$p_warn No repositories fetched. Running update..." && shoppe_update
+#	totalrepos="$(find $configdir/repodata -mindepth 1 -type f | wc -l)" # total amount of repositories
+	tocheck="$packages"
+	until [[ -z "$tocheck" ]] || [[ "$tocheck" = " " ]]; do
+		for package in $tocheck; do
+			success="0"
+			idtocheck="1"
+			until [[ ! -e "$configdir/repodata/$idtocheck" ]]; do
+				grep "$package" "$configdir/repodata/$idtocheck" &>/dev/null && success="1" && repo="$idtocheck" && break
+				let idtocheck++
+			done
+			[[ "$success" = "0" ]] && echo -e "$p_error Could not find package $package. Check if your spelling is correct or add a repository that contains this package." && exit 1
+			echo -e "$infoPrefix Fetching package: $package"
+			repotofetch="$(head -n1 $configdir/repodata/$repo)"
+			mkdir "$tmpdir/$package"
+			case $repotofetch in
+				"local: "*) cp "${repotofetch/local\:\ /}/$package/shoppepkg" "$tmpdir/$package/" && success="1"
+							[[ -e "${repotofetch/local\:\ /}/$package/content.tar.gz" ]] && cp "${repotofetch/local\:\ /}/$package/content.tar.gz" "$tmpdir/$package/";;
+				"http: "*)  wget -q "${repotofetch/http\:\ /}/$package/shoppepkg" -O "$configdir/repodata/shoppepkg"
+							! wget -q "${repotofetch/http\:\ /}/$package/content.tar.gz" -O "$configdir/$package/content.tar.gz" && echo -e "$p_warn Prebuilt files not found, defaulting to build mode..." && echo "nobuild='false'" >> "$configdir/$package/shoppepkg";;
+				*) echo -e "$p_debug Repo data file for id $repo does not contain repository path! Have you been tampering with the file? Run shoppe update to fix this.";;
+			esac
+			source "$tmpdir/$package/shoppepkg"
+			toinstall="$toinstall $package"
+			[[ ! -z "$depends" ]] && tocheck="$tocheck $depends"
+			[[ "$nobuild" = "false" ]] && [[ ! -z "$makedepends" ]] && toinstall="$tocheck $makedepends"
+			tocheck="${tocheck/$package/}"
+		done
+	done
+	toinstall="$(echo -e "${toinstall}" | sed -e 's/^[[:space:]]*//')"
+	echo -e "$p_info This will install the following packages: "
+	echo -e "$toinstall"
+	echo -e "Continue? [Y/n]"
+	yesno y
+	[[ "$choice" == "no" ]] && exit 1
+	for package in $toinstall; do
+		echo -e "$p_info Installing $package..."
+		let currentpkg++
+		nobuild="true"
+		[[ "$forcebuild" == "true" ]] && nobuild="false"
+		cd "$tmpdir/$package"
+		source shoppepkg
+		type -t shoppepreinstall &>/dev/null && echo -e "  - $p_info Running pre-install..." && shoppepreinstall
+		if [[ "$nobuild" == "false" ]]; then
+			type -t shoppebuild &>/dev/null && echo -e "  - $p_info Building..." && ! shoppebuild && echo -e "$p_error Failed to build $package." && exit 1
+			type -t shoppeinstall &>/dev/null && echo -e "  - $p_info Installing..." && ! shoppeinstall && echo -e "$p_error Failed to build $package." && exit 1
+		else
+			[[ "$nobuild" == "true" ]] && [[ "$(sha512sum content.tar.gz)" == "$sha512sum" ]] && tar -xzf content.tar.gz
+		fi
+		cd content && ! sudo cp -rf * / && echo -e "$p_error Failed to install $package." && exit 1
+		mkdir "$pkginfo/$package"
+		shopt -s globstar
+		for file in "$tmpdir/$package/content"/**; do
+			[[ ! -d "$file" ]] && echo "${file/$PWD/}" >> "$pkginfo/$package/content"
+		done
+		shopt -u globstar
+		type -t shoppepostinstall &>/dev/null && echo -e "  - $p_info Running post-install..." && ! shoppepostinstall && echo -e "$p_warning Post-install script failed, but package's files were already copied! It is reccomended to reinstall the package, and if that doesn't help, contact the package's maintainer."
+		if grep "^$package " "$pkglist"; then
+			grep -vwE "^$package " "$pkglist" > "${pkglist}-tmp"
+			mv "${pkglist}-tmp" "$pkglist"
+		fi
+		echo "$package $revision $pkgver" >> "$pkglist"
+		if [[ "$packagemake" == "true" ]]; then
+			tar -czf content.tar.gz content
+			echo -e "$p_debug sha512sum=$(sha512sum content.tar.gz)"
+			mv content.tar.gz ~/$package.tar.gz
+			echo -e "$p_debug Saved content.tar.gz as $HOME/$package.tar.gz."
+		fi
+	done
+}
+
+# Update repository info.
+shoppe_update() {
+	rm -rf "$configdir/repodata"
+	mkdir "$configdir/repodata"
+	while IFS="" read -r line || [[ -n "$line" ]]; do
+		# See: docs/repositories.md
+		if [[ "$line" == "local:"* ]] || [[ "$line" == "http:"* ]]; then
+			success="0"
+			let repoID++
+			echo -e "$p_info Fetching repository $repoID..."
+			case $line in
+				"local: "*) cp "${line/local\:\ /}/pkglist" "$configdir/repodata/$repoID" && echo "$line" > "$configdir/repodata/tmp" && cat "$configdir/repodata/$repoID" >> "$configdir/repodata/tmp" && mv "$configdir/repodata/tmp" "$configdir/repodata/$repoID" && success="1" && echo -e "$p_info $repoID is $line";;
+				"http: "*) wget -q "${line/http\:\ /}/pkglist" -O "$configdir/repodata/$repoID" && echo "$line" > "$configdir/repodata/tmp" && cat "$configdir/repodata/$repoID" >> "$configdir/repodata/tmp" && mv "$configdir/repodata/tmp" "$configdir/repodata/$repoID" &&  success="1" && echo -e "$p_debug $repoID is $line";;
+			esac
+			[[ "$success" == "0" ]] && let repoID-- && echo -e "$p_warn Failed to fetch repository: $line"
+		fi
+	done < "$repofile"
+	[[ "$repoID" == "0" ]] && echo -e "$p_error No repositories were fetched." && exit 1
+}
+
+## Option parsing
+case $1 in
+		'install') command="shoppe_install";;
+		'remove') command="shoppe_remove";;
+		'update') command="shoppe_update";;
+		'upgrade') command="shoppe_upgrade";;
+		'fetch') command="shoppe_fetch";;
+		'query') command="shoppe_query"; subcommand="$2";;
+esac
+nocmd="${*/$1/}"
+nocmd="${nocmd/$subcommand/}"
+for parse in $nocmd; do
+	case $parse in
+		-*) switches="$switches $parse";;
+		+*) shoppeswitches="$shoppeswitches $parse";;
+		*) packages="$packages $parse";;
+	esac
+done
+command=$(echo "$command" | sed -e 's/^[ \t]*//')
+packages=$(echo "$packages" | sed -e 's/^[ \t]*//')
+switches=$(echo "$switches" | sed -e 's/^[ \t]*//')
+[[ -z $command ]] && echo -e "$p_error Nothing to do!" && exit 1
+for switch in $shoppeswitches; do
+	case $switch in
+		"+skipfrontend"|"+sf") skipfrontend="true";;
+		"+noconfirm"|"+nc") noconfirm="true";;
+		"+rawquery"|"+rq") rawquery="true";;
+		"+forcebuild"|"+fb") nobuild="false"; forcebuild="true";;
+		"+packagemake"|"+pm") packagemake="true"; nobuild="false";;
+	esac
+done
+[[ "$switch" == *"--noconfirm"* ]] && noconfirm="true"
+
+echo "$command $packages $switches"
+
+$command
