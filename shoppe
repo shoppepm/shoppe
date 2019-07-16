@@ -46,6 +46,8 @@ pkglist="$configdir/pkglist"
 pkginfo="$configdir/pkginfo"
 tmpdir="$configdir/tmp"
 
+[[ ! -e "$configdir" ]] && mkdir "$configdir"
+[[ ! -e "$pkginfo" ]] && mkdir "$pkginfo"
 [[ -e "$configdir/config" ]] && source "$configdir/config"
 [[ ! -e "$configdir/repodata" ]] && mkdir "$configdir/repodata"
 [[ ! -e "$repofile" ]] && echo "http: https://raw.githubusercontent.com/shoppepm/shoppe-repos/master" > "$repofile"
