@@ -33,8 +33,8 @@ tag="$version"
 
 # Building. This is required, unless your package only requires an install, in which case you can remove it. In this case, it is not required, so it is commented out.
 #shoppebuild() {
-#	getpkg # This automatically gets the package.
-#	cd "$pkgname"
+#	get_source
+	cd source
 #	# Building commands go here...
 #	cd ../
 #}
@@ -43,9 +43,11 @@ tag="$version"
 
 # Installation. This is required.
 shoppeinstall() {
-	getpkg
-	cd "$pkgname"
+	get_source
+	cd source
 	# Installation commands go here...
 	sudo make install
 }
+
+# You can also specify post- and pre-install hooks, by creating the shoppepreinstall and shoppepostinstall functions.
 ```

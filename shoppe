@@ -19,6 +19,7 @@
 # Package search
 # Better documentation on getting started
 # Fix package installation order (dependencies first, full packages last)
+# Clear functions after each install
 
 ### BEGIN CODE ###
 
@@ -100,12 +101,12 @@ shoppe_install() {
 		for package in $tocheck; do
 			success="0"
 			idtocheck="1"
+			echo -e "$infoPrefix Fetching package: $package"
 			until [[ ! -e "$configdir/repodata/$idtocheck" ]]; do
 				grep "$package" "$configdir/repodata/$idtocheck" &>/dev/null && success="1" && repo="$idtocheck" && break
 				let idtocheck++
 			done
 			[[ "$success" = "0" ]] && echo -e "$p_error Could not find package $package. Check if your spelling is correct or add a repository that contains this package." && exit 1
-			echo -e "$infoPrefix Fetching package: $package"
 			repotofetch="$(head -n1 $configdir/repodata/$repo)"
 			mkdir "$tmpdir/$package"
 			case $repotofetch in
