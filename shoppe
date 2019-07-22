@@ -14,7 +14,6 @@
 ## TODO
 # More authentication methods for commands that use sudo
 # Upgrades
-# The Frontend:tm:
 # Package search
 # Better documentation on getting started
 # Fix package installation order (dependencies first, full packages last)
@@ -134,7 +133,7 @@ frontend_init() {
 			frontend_remove="sudo $pm -R"
 			frontend_update="sudo $pm -Sy"
 			frontend_upgrade="sudo $pm -Syu"
-			frontend_query="sudo $pm info"
+			frontend_query="sudo $pm -Q"
 			frontend_listall="$pm -Q"
 			;;
 	esac
@@ -262,15 +261,30 @@ shoppe_remove() {
 	tocheck="$packages"
 	until [[ -z "${tocheck// }" ]]; do
 		for package in $tocheck; do
-			! grep "^$package " "$pkglist" &>/dev/null && echo -e "$p_info Package $package is not installed, skipping..." && tocheck="${tocheck/$package/}" && continue
+			unset currentfrontend
+			if [[ "$pm" ]]; then
+				! grep "^$package " "$pkglist" &>/dev/null && ! grep "^$package " "$pkglist.frontend" && echo -e "$p_info Package $package is not installed, skipping..." && tocheck="${tocheck/$package/}" && continue
+			else
+				! grep "^$package " "$pkglist" &>/dev/null && echo -e "$p_info Package $package is not installed, skipping..." && tocheck="${tocheck/$package/}" && continue
+			fi
+			shopt -s globstar
+			for dir in $pkginfo/**; do
+				if [[ -e "$dir/dependencies" ]] && grep "^$package" "$dir/dependencies"; then
+					tocheck="${tocheck/$package/}"
+					depfound="true"
+					break
+				fi
+			done
+			[[ "$depfound" == "true" ]] && continue
+			grep "^$package " "$pkglist.frontend" && tofrontend="$tofrontend $package" && currentfrontend="true"
 			tocheck="${tocheck/$package/}"
-			tocheck="$tocheck $(cat $pkginfo/$package/dependencies)"
-			toremove="$package"
+			[[ "$currentfrontend" != "true" ]] && tocheck="$tocheck $(cat $pkginfo/$package/dependencies)" && toremove="$package"
 		done
 	done
-	[[ -z "$toremove" ]] && echo -e "$p_error Nothing to remove!" && exit 1
+	[[ -z "$toremove" ]] && [[ -z "$tofrontend" ]] && echo -e "$p_error Nothing to remove!" && exit 1
 	echo -e "$p_info The following packages will be removed"
 	echo "$toremove"
+	[[ "$pm" ]] && [[ "$tofrontend" ]] && echo -e "$p_info Using frontend for:" && echo "$tofrontend"
 	echo -e "Continue? [Y/n]"
 	yesno y
 	[[ "$choice" == "no" ]] && exit 1
