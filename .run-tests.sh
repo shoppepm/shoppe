@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/bin/bash
 
 # This is a script used to automate testing.
 # It's used to verify that everything works correctly.
