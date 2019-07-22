@@ -45,6 +45,7 @@ tmpdir="$configdir/tmp"
 
 force="false"
 
+[[ ! -e "$HOME/.config" ]] && mkdir "$HOME/.config"
 [[ ! -e "$configdir" ]] && mkdir "$configdir"
 [[ ! -e "$pkginfo" ]] && mkdir "$pkginfo"
 [[ -e "$configdir/config" ]] && source "$configdir/config"
