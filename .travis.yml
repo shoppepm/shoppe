@@ -1,2 +1,2 @@
-language: bash
+language: minimal
 script: ./.run-tests.sh
