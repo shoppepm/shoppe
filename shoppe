@@ -186,13 +186,18 @@ shoppe_install() {
 				*) echo -e "$p_debug Repo data file for id $repo does not contain repository path! Have you been tampering with the file? Run shoppe update to fix this.";;
 			esac
 			source "$tmpdir/$package/shoppepkg"
-			if [[ "$force" != "true" ]] && grep "^$package $revision $pkgver" "$pkglist" &>/dev/null && grep "^$package $revision $pkgver" "$pkglist.frontend" &>/dev/null; then
-				echo "$p_info Package $package is already installed, skipping..."
+			if [[ "$force" != "true" ]] && grep "^$package $revision $pkgver" "$pkglist" &>/dev/null; then
+				echo -e "$p_info Package $package is already installed, skipping..."
 				tocheck="${tocheck/$package/}"
 				continue
 				#echo -e "$p_info Package $package is already installed! Install anyways? [y/N]"
 				#yesno n
 				#[[ "$choice" == "no" ]]  && continue
+			fi
+			if [[ "$pm" ]] && [[ "$force" != "true" ]] && grep "^$package $revision $pkgver" "$pkglist.frontend" &>/dev/null; then
+				echo -e "$p_info Package $package is already installed via frontend, skipping..."
+				tocheck="${tocheck/$package/}"
+				continue
 			fi
 			toinstall="$toinstall $package"
 			[[ ! -z "$depends" ]] && tocheck="$tocheck $depends"
