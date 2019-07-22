@@ -21,9 +21,6 @@
 # Fix package installation order (dependencies first, full packages last)
 # Clear functions after each install
 
-## TOFIX
-# forcebuild causes dependencies to be assigned to toinstall instead of tofrontend
-
 ### BEGIN CODE ###
 
 ## Architecture detection.
@@ -190,7 +187,7 @@ shoppe_install() {
 			fi
 			toinstall="$toinstall $package"
 			[[ ! -z "$depends" ]] && tocheck="$tocheck $depends"
-			[[ "$nobuild" = "false" ]] && [[ ! -z "$makedepends" ]] && toinstall="$tocheck $makedepends"
+			[[ "$nobuild" = "false" ]] && [[ ! -z "$makedepends" ]] && tocheck="$tocheck $makedepends"
 			tocheck="${tocheck/$package/}"
 		done
 	done
