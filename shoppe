@@ -1,4 +1,4 @@
-#!/usr/bin/bash -x
+#!/usr/bin/bash
 ##
 ## shoppe - a lightweight portable package manager that integrates with your current package manager
 ##
@@ -13,13 +13,11 @@
 
 ## TODO
 # More authentication methods for commands that use sudo
-# Removal
 # Upgrades
 # The Frontend:tm:
 # Package search
 # Better documentation on getting started
 # Fix package installation order (dependencies first, full packages last)
-# Clear functions after each install
 
 ### BEGIN CODE ###
 
@@ -92,6 +90,16 @@ get_source() {
     esac
 }
 
+pkg_cleanup() {
+	# This function cleans up after shoppe package.
+	# Use this when you're running a loop that sources multiple shoppepkgs.
+	# Usage: pkg_cleanup
+	unset pkgname pkgdesc pkgarch pkgver revision license website depends optional makedepends conflicts archdependent source sourcetype tag
+	unset -f shoppepreinstall shoppebuild shoppeinstall shoppepostinstall
+	unset nobuild
+	[[ "$forcebuild" == "true" ]] && nobuild="false"
+}
+
 ## Frontend
 
 # Supported package managers:
@@ -158,6 +166,7 @@ shoppe_install() {
 	# - check if the package is already installed
 	until [[ -z "${tocheck// }" ]]; do
 		for package in $tocheck; do
+			pkg_cleanup
 			success="0"
 			idtocheck="1"
 			[[ "$pm" ]] && $frontend_query $package &>/dev/null && tofrontend="$tofrontend $package" && tocheck="${tocheck/$package/}" && continue
@@ -202,6 +211,7 @@ shoppe_install() {
 	[[ "$choice" == "no" ]] && exit 1
 	[[ "$tofrontend" ]] && echo -e "$p_info Installing packages from frontend..." && if $frontend_install $tofrontend; then echo -e "$p_info Updating installed package list..." && frontend_harvest; else echo -e "$p_error Failed to install." && exit 1; fi
 	for package in $toinstall; do
+		pkg_cleanup
 		echo -e "$p_info Installing $package..."
 		let currentpkg++
 		nobuild="true"
@@ -260,6 +270,7 @@ shoppe_remove() {
 	yesno y
 	[[ "$choice" == "no" ]] && exit 1
 	for package in $toremove; do
+		pkg_cleanup
 		echo -e "$p_info Removing $package..."
 		! xargs sudo rm -f < "$pkginfo/$package/content" && echo -e "$p_error Failed to remove $package." && exit 1
 		rm -rf "$pkginfo/$package"

@@ -21,3 +21,9 @@ This command finds the installed package manager and assigns it to the pm variab
 ### frontend_harvest
 
 This function is called during the update process and fetches the list of installed packages.
+
+## Using the frontend
+
+The frontend is initialized at startup. When you need to call a frontend function, simply use $frontend_COMMAND as a command.
+
+To check if the frontend is active, see if the $pm variable is set.
