@@ -5,14 +5,14 @@
 
 set -ev
 
-./shoppe install boredbutton +fb
+./shoppe install boredbutton +nc
 
 ls ~/.config/shoppe
 ls ~/.config/shoppe/*
 
-./shoppe remove boredbutton
-./shoppe install boredbutton-git
-./shoppe remove boredbutton-git
+./shoppe remove boredbutton +nc
+./shoppe install boredbutton-git +nc
+./shoppe remove boredbutton-git +nc
 
 ./shoppe update
 #./shoppe upgrade
