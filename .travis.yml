@@ -1,2 +1,2 @@
 language: bash
-script: .run-tests.sh
+script: ./.run-tests.sh
