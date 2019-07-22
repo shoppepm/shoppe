@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/usr/bin/env bash
 ##
 ## shoppe - a lightweight portable package manager that integrates with your current package manager
 ##
