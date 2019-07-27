@@ -119,14 +119,14 @@ frontend_init() {
 			frontend_remove="sudo $pm remove"
 			frontend_update="sudo $pm update"
 			frontend_upgrade="sudo $pm upgrade"
-			frontend_query="apt-cache search --names-only ^"
+			frontend_query="apt-cache search --names-only '^$package'"
 			;;
 		yay|yaourt|pacaur)
 			frontend_install="$pm -Sy --needed"
 			frontend_remove="$pm -R"
 			frontend_update="$pm -Sy"
 			frontend_upgrade="$pm -Syu"
-			frontend_query="$pm -Q"
+			frontend_query="$pm -Q $package"
 			frontend_listall="$pm -Q"
 			;;
 		pacman)
@@ -134,7 +134,7 @@ frontend_init() {
 			frontend_remove="sudo $pm -R"
 			frontend_update="sudo $pm -Sy"
 			frontend_upgrade="sudo $pm -Syu"
-			frontend_query="sudo $pm -Q"
+			frontend_query="sudo $pm -Q $package"
 			frontend_listall="$pm -Q"
 			;;
 	esac
@@ -169,7 +169,7 @@ shoppe_install() {
 			pkg_cleanup
 			success="0"
 			idtocheck="1"
-			[[ "$pm" ]] && $frontend_query $package &>/dev/null && tofrontend="$tofrontend $package" && tocheck="${tocheck/$package/}" && continue
+			[[ "$pm" ]] && $frontend_query &>/dev/null && tofrontend="$tofrontend $package" && tocheck="${tocheck/$package/}" && continue
 			echo -e "$p_info Fetching package: $package"
 			until [[ ! -e "$configdir/repodata/$idtocheck" ]]; do
 				grep "$package" "$configdir/repodata/$idtocheck" &>/dev/null && success="1" && repo="$idtocheck" && break
