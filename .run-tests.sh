@@ -5,6 +5,10 @@
 
 set -ev
 
+echo "$(echo '#!/bin/bash -x' && grep -v '^\#\!\/' shoppe)" > shoppe-testing
+mv shoppe-testing shoppe
+chmod +x shoppe
+
 ./shoppe install boredbutton +nc
 
 ls ~/.config/shoppe
