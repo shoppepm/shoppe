@@ -114,12 +114,12 @@ frontend_init() {
 		command -v "$pm" &>/dev/null && break
 	done
 	case $pm in
-		apt|apt-get|dnf|yum)
+		apt|apt-get)
 			frontend_install="sudo $pm install"
 			frontend_remove="sudo $pm remove"
 			frontend_update="sudo $pm update"
 			frontend_upgrade="sudo $pm upgrade"
-			frontend_query="sudo $pm info"
+			frontend_query="apt-cache search --names-only ^"
 			;;
 		yay|yaourt|pacaur)
 			frontend_install="$pm -Sy --needed"
