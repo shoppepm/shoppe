@@ -13,11 +13,15 @@
 # Do not leave empty lines after comments, unless the comments are important in some way.
 
 ## TODO
-# More authentication methods for commands that use sudo
-# Upgrades
-# Package search
+# Add upgrades
+# Add basic package search (package search, list all packages)
 # Fix package installation order (dependencies first, full packages last)
-# Readd all package managers and add query and listall commands
+# Re-add all package managers and add query and listall commands
+# Compare package versions between multiple repositories
+# Implement optional dependencies
+# (at this point rewrite will be moved to master, and the old master will be movved to legacy)
+# More authentication methods for commands that use sudo
+# Clear up documentation
 
 ### BEGIN CODE ###
 
@@ -25,7 +29,7 @@
 arch="$(uname -m)"
 # Some architectures are mostly the same, and major package managers
 # will consider them as the same architecture, so we follow suit.
-[[ "$arch" = "i"*"86" ]] && arch="i686"
+[[ "$arch" = "i"*"86" ]] && arch="i386"
 
 ## Prefixes
 # These are used to prefix command output.
@@ -101,10 +105,24 @@ pkg_cleanup() {
 	[[ "$forcebuild" == "true" ]] && nobuild="false"
 }
 
+ver_cleanup() {
+	# This function is used to convert a version like v1.2.3 to a number that can be compared like 123.
+	# Usage: ver_cleanup <version to convert>
+	# Outputs converted version to stdout. Use with $().
+	echo "$*" | sed 's/[^0-9]*//g'
+}
+
 ## Frontend
 
 # Supported package managers:
 availablePM="apt apt-get dnf yum yay yaourt pacaur pacman"
+
+apt_query() {
+	# Workaround for buggy apt-cache behavior (apt-cache will return 0 even if the search has failed.
+	# Usage: apt_query <packages>
+	apt-cache search --names-only ^* 2>"$tmpdir/err"
+	[[ -z "$(cat $tmpdir/err)" ]] && return 0
+}
 
 frontend_init() {
 	# This function initializes the frontend.
@@ -120,7 +138,8 @@ frontend_init() {
 			frontend_remove="sudo $pm remove"
 			frontend_update="sudo $pm update"
 			frontend_upgrade="sudo $pm upgrade"
-			frontend_query="apt-cache search --names-only ^"
+			frontend_query="apt_query"
+			frontend_listall="apt-cache listall"
 			;;
 		yay|yaourt|pacaur)
 			frontend_install="$pm -Sy --needed"
