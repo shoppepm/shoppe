@@ -1,4 +1,4 @@
-#!/usr/bin/bash -x
+#!/usr/bin/env bash
 # shellcheck disable=SC1090,SC2001,SC1091
 ##
 ## shoppe - a lightweight portable package manager that integrates with your current package manager
@@ -16,12 +16,12 @@
 # Add upgrades
 # Add basic package search (package search, list all packages)
 # Fix package installation order (dependencies first, full packages last)
-# Re-add all package managers and add query and listall commands
 # Compare package versions between multiple repositories
-# Implement optional dependencies
 # (at this point rewrite will be moved to master, and the old master will be movved to legacy)
 # More authentication methods for commands that use sudo
 # Clear up documentation
+# Implement optional dependencies
+# Re-add all package managers and add query and listall commands
 
 ### BEGIN CODE ###
 
