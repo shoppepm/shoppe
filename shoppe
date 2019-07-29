@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC1090,SC2001,SC1091
 ##
 ## shoppe - a lightweight portable package manager that integrates with your current package manager
 ##
@@ -15,8 +16,8 @@
 # More authentication methods for commands that use sudo
 # Upgrades
 # Package search
-# Better documentation on getting started
 # Fix package installation order (dependencies first, full packages last)
+# Readd all package managers and add query and listall commands
 
 ### BEGIN CODE ###
 
