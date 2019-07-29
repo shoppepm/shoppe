@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/bash -x
 # shellcheck disable=SC1090,SC2001,SC1091
 ##
 ## shoppe - a lightweight portable package manager that integrates with your current package manager
@@ -118,10 +118,10 @@ ver_cleanup() {
 availablePM="apt apt-get dnf yum yay yaourt pacaur pacman"
 
 apt_query() {
-	# Workaround for buggy apt-cache behavior (apt-cache will return 0 even if the search has failed.
-	# Usage: apt_query <packages>
-	apt-cache search --names-only ^* 2>"$tmpdir/err"
-	[[ -z "$(cat $tmpdir/err)" ]] && return 0
+	# Workaround for buggy apt-cache behavior (apt-cache will return 0 even if the search has failed).
+	# Usage: apt_query <package>
+	apt-cache search --names-only ^"$1"$ &>"$tmpdir/err"
+	if [[ -z "$(cat $tmpdir/err)" ]]; then return 1; else return 0; fi
 }
 
 frontend_init() {
@@ -139,7 +139,7 @@ frontend_init() {
 			frontend_update="sudo $pm update"
 			frontend_upgrade="sudo $pm upgrade"
 			frontend_query="apt_query"
-			frontend_listall="apt-cache listall"
+			frontend_listall="apt-cache pkgnames" # TODO: This only shows package names but not versions. Fix that, eventually.
 			;;
 		yay|yaourt|pacaur)
 			frontend_install="$pm -Sy --needed"
