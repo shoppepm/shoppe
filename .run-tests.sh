@@ -15,8 +15,9 @@ ls ~/.config/shoppe
 ls ~/.config/shoppe/*
 
 ./shoppe remove boredbutton +nc
-./shoppe install boredbutton-git +nc
-./shoppe remove boredbutton-git +nc
+# package seems to be broken:
+#./shoppe install boredbutton-git +nc
+#./shoppe remove boredbutton-git +nc
 
 ./shoppe update
 #./shoppe upgrade
