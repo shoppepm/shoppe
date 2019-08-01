@@ -17,11 +17,11 @@
 # Add basic package search (package search, list all packages)
 # Fix package installation order (dependencies first, full packages last)
 # Compare package versions between multiple repositories
-# (at this point rewrite will be moved to master, and the old master will be movved to legacy)
+# Re-add all package managers and add query and listall commands
+# (at this point rewrite will be moved to master, and the old master will be moved to legacy)
 # More authentication methods for commands that use sudo
 # Clear up documentation
 # Implement optional dependencies
-# Re-add all package managers and add query and listall commands
 
 ### BEGIN CODE ###
 
@@ -103,13 +103,6 @@ pkg_cleanup() {
 	unset -f shoppepreinstall shoppebuild shoppeinstall shoppepostinstall
 	unset nobuild
 	[[ "$forcebuild" == "true" ]] && nobuild="false"
-}
-
-ver_cleanup() {
-	# This function is used to convert a version like v1.2.3 to a number that can be compared like 123.
-	# Usage: ver_cleanup <version to convert>
-	# Outputs converted version to stdout. Use with $().
-	echo "$*" | sed 's/[^0-9]*//g'
 }
 
 ## Frontend
@@ -321,14 +314,12 @@ shoppe_remove() {
 
 # Update repository info.
 shoppe_update() {
-	if [[ "$pm" ]]; then
-		echo -e "$p_info Fetching installed package list from frontend..."
-		frontend_harvest
-	fi
+	[[ "$pm" ]] && echo -e "$p_info Fetching installed package list from frontend..." && frontend_harvest
 	rm -rf "$configdir/repodata"
 	mkdir "$configdir/repodata"
+	# For each repository, check the repository type and fetch it accordingly.
 	while IFS="" read -r line || [[ -n "$line" ]]; do
-		# See: docs/repositories.md
+		# See also: docs/repositories.md
 		if [[ "$line" == "local:"* ]] || [[ "$line" == "http:"* ]]; then
 			success="0"
 			let repoID++
@@ -341,6 +332,7 @@ shoppe_update() {
 		fi
 	done < "$repofile"
 	[[ "$repoID" == "0" ]] && echo -e "$p_error No repositories were fetched." && exit 1
+	exit 0
 }
 
 ## Option parsing
