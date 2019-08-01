@@ -332,7 +332,7 @@ shoppe_update() {
 		fi
 	done < "$repofile"
 	[[ "$repoID" == "0" ]] && echo -e "$p_error No repositories were fetched." && exit 1
-	exit 0
+	return 0
 }
 
 ## Option parsing
