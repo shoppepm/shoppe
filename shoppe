@@ -178,7 +178,7 @@ fetch() {
 	done < "$repolist"
 	[[ -z "$reposwithpkg" ]] && echo -e "$p_error Could not find package $package. Check if your spelling is correct or add a repository that contains this package." && exit 1
 	bestline="$package 0 0"
-	for repo in reposwithpkg; do
+	for repo in $reposwithpkg; do
 		# Check which repo contains the highest version.
 		# To do this, loop over every repository with the package,
 		# get the version in the repo and compare it to a variable
