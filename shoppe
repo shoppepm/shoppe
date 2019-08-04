@@ -16,7 +16,6 @@
 # Add upgrades
 # Add basic package search (package search, list all packages)
 # Fix package installation order (dependencies first, full packages last)
-# Compare package versions between multiple repositories
 # Re-add all package managers and add query and listall commands
 # (at this point rewrite will be moved to master, and the old master will be moved to legacy)
 # More authentication methods for commands that use sudo
@@ -169,6 +168,7 @@ fetch() {
 	[[ -z "$1" ]] && echo -e "$p_debug No package to fetch! This is most likely an issue with the code."
 	[[ "$2" ]] && echo -e "$p_debug fetch function called with multiple packages! Only downloading $1. Consider using a for loop."
 	package="$1"
+	repoID=0
 	echo -e "$p_info Fetching package: $package"
 	while IFS="" read -r repo || [[ -n "$repo" ]]; do
 		let repoID++
