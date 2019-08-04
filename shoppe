@@ -43,7 +43,7 @@ p_debug="\033[35m~!\033[0m"
 
 ## Configuration. This is overwritten by the main config file ($configdir/config)
 configdir="$HOME/.config/shoppe"
-repofile="$configdir/repositories"
+repolist="$configdir/repositories"
 pkglist="$configdir/pkglist"
 pkginfo="$configdir/pkginfo"
 tmpdir="$configdir/tmp"
@@ -55,7 +55,7 @@ force="false"
 [[ ! -e "$pkginfo" ]] && mkdir "$pkginfo"
 [[ -e "$configdir/config" ]] && source "$configdir/config"
 [[ ! -e "$configdir/repodata" ]] && mkdir "$configdir/repodata"
-[[ ! -e "$repofile" ]] && echo "http: https://raw.githubusercontent.com/shoppepm/shoppe-repos/master" > "$repofile"
+[[ ! -e "$repolist" ]] && echo "http: https://raw.githubusercontent.com/shoppepm/shoppe-repos/master" > "$repolist"
 [[ ! -e "$pkglist.frontend" ]] && touch $pkglist.frontend
 
 ## Helper functions
@@ -96,7 +96,7 @@ get_source() {
 }
 
 pkg_cleanup() {
-	# This function cleans up after shoppe package.
+	# This function cleans up after a shoppe package.
 	# Use this when you're running a loop that sources multiple shoppepkgs.
 	# Usage: pkg_cleanup
 	unset pkgname pkgdesc pkgarch pkgver revision license website depends optional makedepends conflicts archdependent source sourcetype tag
@@ -165,14 +165,33 @@ fetch() {
 	# It is not meant to be called with multiple packages.
 	# Usage: fetch <package>
 	# Usage example: use in 'for' loops
+	success="0"
 	[[ -z "$1" ]] && echo -e "$p_debug No package to fetch! This is most likely an issue with the code."
 	[[ "$2" ]] && echo -e "$p_debug fetch function called with multiple packages! Only downloading $1. Consider using a for loop."
+	package="$1"
 	echo -e "$p_info Fetching package: $package"
-	until [[ ! -e "$configdir/repodata/$idtocheck" ]]; do
-		grep "$package" "$configdir/repodata/$idtocheck" &>/dev/null && success="1" && repo="$idtocheck" && break
-		let idtocheck++
+	while IFS="" read -r repo || [[ -n "$repo" ]]; do
+		let repoID++
+		if grep "^$package " "$configdir/repodata/$repoID" &>/dev/null; then
+			reposwithpkg="$reposwithpkg $repoID"
+		fi
+	done < "$repolist"
+	[[ -z "$reposwithpkg" ]] && echo -e "$p_error Could not find package $package. Check if your spelling is correct or add a repository that contains this package." && exit 1
+	bestline="$package 0 0"
+	for repo in reposwithpkg; do
+		# Check which repo contains the highest version.
+		# To do this, loop over every repository with the package,
+		# get the version in the repo and compare it to a variable
+		# which contains the current highest available version.
+		# If it's bigger, overwrite that variable and overwrite
+		# a variable which contains the previous highest repo.
+		currentline=$(grep "^$package " "$configdir/repodata/$repoID")
+		if [[ "$currentline" != "$bestline" ]] && [[ "$(echo $currentline | awk '{print $3;}' | sed 's/[^0-9]*//g')" -gt "$(echo $bestline | awk '{print $3;}' | sed 's/[^0-9]*//g')" ]] && [[ "$(echo $currentline | awk '{print $2;}')" != "$(echo $bestline | awk '{print $2;}')" ]]; then
+			bestline="$currentline"
+			bestrepo="$repo"
+		fi
 	done
-	[[ "$success" = "0" ]] && echo -e "$p_error Could not find package $package. Check if your spelling is correct or add a repository that contains this package." && exit 1
+	repo="$bestrepo"
 	repotofetch="$(head -n1 $configdir/repodata/$repo)"
 	mkdir "$tmpdir/$package"
 	case $repotofetch in
@@ -339,7 +358,7 @@ shoppe_update() {
 			esac
 			[[ "$success" == "0" ]] && let repoID-- && echo -e "$p_warn Failed to fetch repository: $line"
 		fi
-	done < "$repofile"
+	done < "$repolist"
 	[[ "$repoID" == "0" ]] && echo -e "$p_error No repositories were fetched." && exit 1
 	return 0
 }
@@ -347,6 +366,7 @@ shoppe_update() {
 shoppe_fetch() {
 	# Fetches package files for packages
 	# Usage: packages="<packages>" shoppe_fetch
+	# Using this in shoppe code is not recommended. Please use fetch <package> instead.
 	for package in $packages; do fetch $package +; done
 }
 
