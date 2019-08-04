@@ -167,7 +167,22 @@ fetch() {
 	# Usage example: use in 'for' loops
 	[[ -z "$1" ]] && echo -e "$p_debug No package to fetch! This is most likely an issue with the code."
 	[[ "$2" ]] && echo -e "$p_debug fetch function called with multiple packages! Only downloading $1. Consider using a for loop."
-
+	echo -e "$p_info Fetching package: $package"
+	until [[ ! -e "$configdir/repodata/$idtocheck" ]]; do
+		grep "$package" "$configdir/repodata/$idtocheck" &>/dev/null && success="1" && repo="$idtocheck" && break
+		let idtocheck++
+	done
+	[[ "$success" = "0" ]] && echo -e "$p_error Could not find package $package. Check if your spelling is correct or add a repository that contains this package." && exit 1
+	repotofetch="$(head -n1 $configdir/repodata/$repo)"
+	mkdir "$tmpdir/$package"
+	case $repotofetch in
+		"local: "*) cp "${repotofetch/local\:\ /}/$package/shoppepkg" "$tmpdir/$package/" && success="1"
+					[[ -e "${repotofetch/local\:\ /}/$package/content.tar.gz" ]] && cp "${repotofetch/local\:\ /}/$package/content.tar.gz" "$tmpdir/$package/";;
+		"http: "*)  wget -q "${repotofetch/http\:\ /}/$package/shoppepkg" -O "$tmpdir/$package/shoppepkg"
+					! wget -q "${repotofetch/http\:\ /}/$package/content.tar.gz" -O "$tmpdir/$package/content.tar.gz" && echo -e "$p_warn Prebuilt files not found, defaulting to build mode..." && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg";;
+		*) echo -e "$p_debug Repo data file for id $repo does not contain repository path! Have you been tampering with the file? Run shoppe update to fix this.";;
+	esac
+}
 ## Main functions
 
 # Install packages.
