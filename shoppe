@@ -274,7 +274,7 @@ shoppe_install() {
 			success="0"
 			idtocheck="1"
 			[[ "$pm" ]] && $frontend_query $package &>/dev/null && tofrontend="$tofrontend $package" && tocheck="${tocheck/$package/}" && continue
-			fetch $package
+			pkg_fetch $package
 			source "$tmpdir/$package/shoppepkg"
 			if [[ "$force" != "true" ]] && grep "^$package $revision $pkgver" "$pkglist" &>/dev/null; then
 				echo -e "$p_info Package $package is already installed, skipping..."
@@ -385,7 +385,7 @@ shoppe_upgrade() {
 	shoppe_update
 	while IFS="" read -r line || [[ -n "$line" ]]; do
 		package="$(echo $line | awk '{print $1;}')"
-		fetch $package
+		pkg_fetch $package
 		[[ current_uptodate == "true" ]] && toupgrade="$toupgrade $package"
 	done < "$pkglist"
 	toupgrade="$(echo -e "${toupgrade}" | sed -e 's/^[[:space:]]*//')"
@@ -408,7 +408,7 @@ shoppe_fetch() {
 	# Fetches package files for packages
 	# Usage: packages="<packages>" shoppe_fetch
 	# Using this in shoppe code is not recommended. Please use fetch <package> instead.
-	for package in $packages; do fetch $package +; done
+	for package in $packages; do pkg_fetch $package +; done
 }
 
 ## Option parsing
