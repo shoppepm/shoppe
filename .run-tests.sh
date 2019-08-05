@@ -11,13 +11,13 @@ chmod +x shoppe
 
 ./shoppe install boredbutton +nc
 
-bored
+[[ -e "/usr/bin/bored" ]]
 
 ls ~/.config/shoppe
 ls ~/.config/shoppe/*
 
 ./shoppe remove boredbutton +nc
-! bored
+! [[ -e "/usr/bin/bored" ]]
 
 ./shoppe update
 ./shoppe upgrade
