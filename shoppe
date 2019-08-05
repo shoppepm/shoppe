@@ -55,7 +55,8 @@ force="false"
 [[ -e "$configdir/config" ]] && source "$configdir/config"
 [[ ! -e "$configdir/repodata" ]] && mkdir "$configdir/repodata"
 [[ ! -e "$repolist" ]] && echo "http: https://raw.githubusercontent.com/shoppepm/shoppe-repos/master" > "$repolist"
-[[ ! -e "$pkglist.frontend" ]] && touch $pkglist.frontend
+[[ ! -e "$pkglist.frontend" ]] && touch "$pkglist.frontend"
+[[ ! -e "$pkglist" ]] && touch "$pkglist"
 
 ## Helper functions
 yesno() {
@@ -115,6 +116,9 @@ pkg_fetch() {
 	done < "$repolist"
 	[[ -z "$reposwithpkg" ]] && echo -e "$p_error Could not find package $package. Check if your spelling is correct or add a repository that contains this package." && exit 1
 	bestline=$(grep "^$package " "$pkglist")
+	[[ -z "$bestline" ]] && bestline="$package 0 0"
+	originalline=$(grep "^$package " "$configdir/repodata/$repo")
+	bestline="$originalline"
 	for repo in $reposwithpkg; do
 		# Check which repo contains the highest version.
 		# To do this, loop over every repository with the package,
@@ -122,8 +126,7 @@ pkg_fetch() {
 		# which contains the current highest available version.
 		# If it's bigger, overwrite that variable and overwrite
 		# a variable which contains the previous highest repo.
-		originalline=$(grep "^$package " "$configdir/repodata/$repo")
-		currentline="$originalline"
+		currentline=$(grep "^$package " "$configdir/repodata/$repo")
 		if [[ "$currentline" != "$bestline" ]] && [[ "$(echo $currentline | awk '{print $3;}' | sed 's/[^0-9]*//g')" -gt "$(echo $bestline | awk '{print $3;}' | sed 's/[^0-9]*//g')" ]] && [[ "$(echo $currentline | awk '{print $2;}')" != "$(echo $bestline | awk '{print $2;}')" ]]; then
 			bestline="$currentline"
 			bestrepo="$repo"
