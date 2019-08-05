@@ -94,6 +94,55 @@ get_source() {
     esac
 }
 
+
+pkg_fetch() {
+	# This is an internal function for fetching a package.
+	# It is not meant to be called with multiple packages.
+	# Usage: pkg_fetch <package>
+	# Usage example: use in 'for' loops
+	current_uptodate="false"
+	success="0"
+	[[ -z "$1" ]] && echo -e "$p_debug No package to fetch! This is most likely an issue with the code."
+	[[ "$2" ]] && echo -e "$p_debug fetch function called with multiple packages! Only downloading $1. Consider using a for loop."
+	package="$1"
+	repoID=0
+	echo -e "$p_info Fetching package: $package"
+	while IFS="" read -r repo || [[ -n "$repo" ]]; do
+		let repoID++
+		if grep "^$package " "$configdir/repodata/$repoID" &>/dev/null; then
+			reposwithpkg="$reposwithpkg $repoID"
+		fi
+	done < "$repolist"
+	[[ -z "$reposwithpkg" ]] && echo -e "$p_error Could not find package $package. Check if your spelling is correct or add a repository that contains this package." && exit 1
+	bestline=$(grep "^$package " "$pkglist")
+	for repo in $reposwithpkg; do
+		# Check which repo contains the highest version.
+		# To do this, loop over every repository with the package,
+		# get the version in the repo and compare it to a variable
+		# which contains the current highest available version.
+		# If it's bigger, overwrite that variable and overwrite
+		# a variable which contains the previous highest repo.
+		originalline=$(grep "^$package " "$configdir/repodata/$repo")
+		currentline="$originalline"
+		if [[ "$currentline" != "$bestline" ]] && [[ "$(echo $currentline | awk '{print $3;}' | sed 's/[^0-9]*//g')" -gt "$(echo $bestline | awk '{print $3;}' | sed 's/[^0-9]*//g')" ]] && [[ "$(echo $currentline | awk '{print $2;}')" != "$(echo $bestline | awk '{print $2;}')" ]]; then
+			bestline="$currentline"
+			bestrepo="$repo"
+		fi
+	done
+	repo="$bestrepo"
+	repotofetch="$(head -n1 $configdir/repodata/$repo)"
+	[[ "$bestline" == "$originalline" ]] && echo -e "$p_info $package is already up to date." && current_uptodate="true" && return 0
+	mkdir "$tmpdir/$package"
+	case $repotofetch in
+		"local: "*) cp "${repotofetch/local\:\ /}/$package/shoppepkg" "$tmpdir/$package/" && success="1"
+					[[ -e "${repotofetch/local\:\ /}/$package/content.tar.gz" ]] && cp "${repotofetch/local\:\ /}/$package/content.tar.gz" "$tmpdir/$package/";;
+		"http: "*)  wget -q "${repotofetch/http\:\ /}/$package/shoppepkg" -O "$tmpdir/$package/shoppepkg"
+					! wget -q "${repotofetch/http\:\ /}/$package/content.tar.gz" -O "$tmpdir/$package/content.tar.gz" && echo -e "$p_warn Prebuilt files not found, defaulting to build mode..." && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg";;
+		*) echo -e "$p_debug Repo data file for id $repo does not contain repository path! Have you been tampering with the file? Run shoppe update to fix this.";;
+	esac
+}
+
+
 pkg_cleanup() {
 	# This function cleans up after a shoppe package.
 	# Use this when you're running a loop that sources multiple shoppepkgs.
@@ -102,6 +151,50 @@ pkg_cleanup() {
 	unset -f shoppepreinstall shoppebuild shoppeinstall shoppepostinstall
 	unset nobuild
 	[[ "$forcebuild" == "true" ]] && nobuild="false"
+}
+
+pkg_install() {
+	# This is an internal function used to install packages.
+	# Usage: package="packagetoinstall" pkg_install
+	pkg_cleanup
+	nobuild="true"
+	cd "$tmpdir/$package"
+	source shoppepkg
+	[[ "$forcebuild" == "true" ]] && nobuild="false"
+	[[ "$package" != "$pkgname" ]] && echo -e "$p_debug Package name and pkgname do not match (expected $package, got $pkgname). Please contact the package's maintainer."
+	type -t shoppepreinstall &>/dev/null && echo -e "  - $p_info Running pre-install..." && shoppepreinstall
+	if [[ "$nobuild" == "false" ]]; then
+		type -t shoppebuild &>/dev/null && echo -e "  - $p_info Building..." && ! shoppebuild && echo -e "$p_error Failed to build $package." && exit 1
+		type -t shoppeinstall &>/dev/null && echo -e "  - $p_info Installing..." && ! shoppeinstall && echo -e "$p_error Failed to build $package." && exit 1
+	else
+		[[ "$nobuild" == "true" ]] && [[ "$(sha512sum content.tar.gz)" == "$sha512sum" ]] && tar -xzf content.tar.gz
+	fi
+	! sudo cp -rf content/* / && echo -e "$p_error Failed to install $package." && exit 1
+	[[ -e "$pkginfo/$package" ]] && rm -rf "$pkginfo/$package"
+	mkdir "$pkginfo/$package"
+	shopt -s globstar
+	[[ -e "$pkginfo/$package/content" ]] && rm "$pkginfo/$package/content"
+	for file in "$tmpdir/$package/content"/**; do
+		echo "${file/$PWD/}" >> "$pkginfo/$package/content"
+	done
+	shopt -u globstar
+	type -t shoppepostinstall &>/dev/null && echo -e "  - $p_info Running post-install..." && ! shoppepostinstall && echo -e "$p_warning Post-install script failed, but package's files were already copied! It is reccomended to reinstall the package, and if that doesn't help, contact the package's maintainer."
+	if grep "^$package " "$pkglist"; then
+		grep -vwE "^$package " "$pkglist" > "${pkglist}-tmp"
+		mv "${pkglist}-tmp" "$pkglist"
+	fi
+	echo "$package $revision $pkgver" >> "$pkglist"
+	if [[ "$nobuild" == "false" ]] && [[ "$makedepends" ]]; then [[ "$depends" ]] && echo "$makedepends $depends" > "$pkginfo/$package/dependencies"; else [[ "$depends" ]] && echo "$depends" > "$pkginfo/$package/dependencies"; fi
+}
+
+pkg_remove() {
+	# This is an internal function used to remove packages.
+	# Usage: package="packagetoremove" pkg_remove
+	pkg_cleanup
+	! xargs sudo rm -f < "$pkginfo/$package/content" && echo -e "$p_error Failed to remove $package." && exit 1
+	rm -rf "$pkginfo/$package"
+	grep -vwE "^$package " "$pkglist" > "${pkglist}-tmp"
+	mv "${pkglist}-tmp" "$pkglist"
 }
 
 ## Frontend
@@ -158,50 +251,6 @@ frontend_harvest() {
 	[[ -z "$pm" ]] && return 0
 	$frontend_listall >> $pkglist.frontend
 }
-
-fetch() {
-	# This is an internal function for fetching a package.
-	# It is not meant to be called with multiple packages.
-	# Usage: fetch <package>
-	# Usage example: use in 'for' loops
-	success="0"
-	[[ -z "$1" ]] && echo -e "$p_debug No package to fetch! This is most likely an issue with the code."
-	[[ "$2" ]] && echo -e "$p_debug fetch function called with multiple packages! Only downloading $1. Consider using a for loop."
-	package="$1"
-	repoID=0
-	echo -e "$p_info Fetching package: $package"
-	while IFS="" read -r repo || [[ -n "$repo" ]]; do
-		let repoID++
-		if grep "^$package " "$configdir/repodata/$repoID" &>/dev/null; then
-			reposwithpkg="$reposwithpkg $repoID"
-		fi
-	done < "$repolist"
-	[[ -z "$reposwithpkg" ]] && echo -e "$p_error Could not find package $package. Check if your spelling is correct or add a repository that contains this package." && exit 1
-	bestline="$package 0 0"
-	for repo in $reposwithpkg; do
-		# Check which repo contains the highest version.
-		# To do this, loop over every repository with the package,
-		# get the version in the repo and compare it to a variable
-		# which contains the current highest available version.
-		# If it's bigger, overwrite that variable and overwrite
-		# a variable which contains the previous highest repo.
-		currentline=$(grep "^$package " "$configdir/repodata/$repoID")
-		if [[ "$currentline" != "$bestline" ]] && [[ "$(echo $currentline | awk '{print $3;}' | sed 's/[^0-9]*//g')" -gt "$(echo $bestline | awk '{print $3;}' | sed 's/[^0-9]*//g')" ]] && [[ "$(echo $currentline | awk '{print $2;}')" != "$(echo $bestline | awk '{print $2;}')" ]]; then
-			bestline="$currentline"
-			bestrepo="$repo"
-		fi
-	done
-	repo="$bestrepo"
-	repotofetch="$(head -n1 $configdir/repodata/$repo)"
-	mkdir "$tmpdir/$package"
-	case $repotofetch in
-		"local: "*) cp "${repotofetch/local\:\ /}/$package/shoppepkg" "$tmpdir/$package/" && success="1"
-					[[ -e "${repotofetch/local\:\ /}/$package/content.tar.gz" ]] && cp "${repotofetch/local\:\ /}/$package/content.tar.gz" "$tmpdir/$package/";;
-		"http: "*)  wget -q "${repotofetch/http\:\ /}/$package/shoppepkg" -O "$tmpdir/$package/shoppepkg"
-					! wget -q "${repotofetch/http\:\ /}/$package/content.tar.gz" -O "$tmpdir/$package/content.tar.gz" && echo -e "$p_warn Prebuilt files not found, defaulting to build mode..." && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg";;
-		*) echo -e "$p_debug Repo data file for id $repo does not contain repository path! Have you been tampering with the file? Run shoppe update to fix this.";;
-	esac
-}
 ## Main functions
 
 # Install packages.
@@ -257,37 +306,9 @@ shoppe_install() {
 	[[ "$choice" == "no" ]] && exit 1
 	[[ "$tofrontend" ]] && echo -e "$p_info Installing packages from frontend..." && if $frontend_install $tofrontend; then echo -e "$p_info Updating installed package list..." && frontend_harvest; else echo -e "$p_error Failed to install." && exit 1; fi
 	for package in $toinstall; do
-		pkg_cleanup
 		echo -e "$p_info Installing $package..."
 		let currentpkg++
-		nobuild="true"
-		cd "$tmpdir/$package"
-		source shoppepkg
-		[[ "$forcebuild" == "true" ]] && nobuild="false"
-		[[ "$package" != "$pkgname" ]] && echo -e "$p_debug Package name and pkgname do not match (expected $package, got $pkgname). Please contact the package's maintainer."
-		type -t shoppepreinstall &>/dev/null && echo -e "  - $p_info Running pre-install..." && shoppepreinstall
-		if [[ "$nobuild" == "false" ]]; then
-			type -t shoppebuild &>/dev/null && echo -e "  - $p_info Building..." && ! shoppebuild && echo -e "$p_error Failed to build $package." && exit 1
-			type -t shoppeinstall &>/dev/null && echo -e "  - $p_info Installing..." && ! shoppeinstall && echo -e "$p_error Failed to build $package." && exit 1
-		else
-			[[ "$nobuild" == "true" ]] && [[ "$(sha512sum content.tar.gz)" == "$sha512sum" ]] && tar -xzf content.tar.gz
-		fi
-		! sudo cp -rf content/* / && echo -e "$p_error Failed to install $package." && exit 1
-		[[ -e "$pkginfo/$package" ]] && rm -rf "$pkginfo/$package"
-		mkdir "$pkginfo/$package"
-		shopt -s globstar
-		[[ -e "$pkginfo/$package/content" ]] && rm "$pkginfo/$package/content"
-		for file in "$tmpdir/$package/content"/**; do
-			echo "${file/$PWD/}" >> "$pkginfo/$package/content"
-		done
-		shopt -u globstar
-		type -t shoppepostinstall &>/dev/null && echo -e "  - $p_info Running post-install..." && ! shoppepostinstall && echo -e "$p_warning Post-install script failed, but package's files were already copied! It is reccomended to reinstall the package, and if that doesn't help, contact the package's maintainer."
-		if grep "^$package " "$pkglist"; then
-			grep -vwE "^$package " "$pkglist" > "${pkglist}-tmp"
-			mv "${pkglist}-tmp" "$pkglist"
-		fi
-		echo "$package $revision $pkgver" >> "$pkglist"
-		if [[ "$nobuild" == "false" ]] && [[ "$makedepends" ]]; then [[ "$depends" ]] && echo "$makedepends $depends" > "$pkginfo/$package/dependencies"; else [[ "$depends" ]] && echo "$depends" > "$pkginfo/$package/dependencies"; fi
+		pkg_install $package
 		if [[ "$packagemake" == "true" ]]; then
 			tar -czf content.tar.gz content
 			echo -e "$p_debug sha512sum=$(sha512sum content.tar.gz)"
@@ -331,12 +352,8 @@ shoppe_remove() {
 	yesno y
 	[[ "$choice" == "no" ]] && exit 1
 	for package in $toremove; do
-		pkg_cleanup
 		echo -e "$p_info Removing $package..."
-		! xargs sudo rm -f < "$pkginfo/$package/content" && echo -e "$p_error Failed to remove $package." && exit 1
-		rm -rf "$pkginfo/$package"
-		grep -vwE "^$package " "$pkglist" > "${pkglist}-tmp"
-		mv "${pkglist}-tmp" "$pkglist"
+		pkg_remove $package
 	done
 }
 
@@ -361,6 +378,30 @@ shoppe_update() {
 	done < "$repolist"
 	[[ "$repoID" == "0" ]] && echo -e "$p_error No repositories were fetched." && exit 1
 	return 0
+}
+
+# Upgrade packages
+shoppe_upgrade() {
+	shoppe_update
+	while IFS="" read -r line || [[ -n "$line" ]]; do
+		package="$(echo $line | awk '{print $1;}')"
+		fetch $package
+		[[ current_uptodate == "true" ]] && toupgrade="$toupgrade $package"
+	done < "$pkglist"
+	toupgrade="$(echo -e "${toupgrade}" | sed -e 's/^[[:space:]]*//')"
+	[[ -z "$toupgrade" ]] && echo -e "$p_info Nothing to upgrade." && exit 0
+	echo -e "$p_info The following packages will be upgraded:"
+	echo "$toupgrade"
+	[[ "$pm" ]] && echo -e "$p_info This will also upgrade all packages using the system's native package manager."
+	echo -e "Continue? [Y/n]"
+	yesno y
+	[[ "$choice" == "no" ]] && exit 1
+	[[ "$pm" ]] && $frontend_upgrade
+	for package in $toupgrade; do
+		echo -e "$p_info Upgrading $package..."
+		! pkg_remove && echo -e "$p_error Failed to upgrade $package." && exit 1
+		! pkg_install && echo -e "$p_error Failed to upgrade $package." && exit 1
+	done
 }
 
 shoppe_fetch() {

@@ -11,13 +11,13 @@ chmod +x shoppe
 
 ./shoppe install boredbutton +nc
 
+bored
+
 ls ~/.config/shoppe
 ls ~/.config/shoppe/*
 
 ./shoppe remove boredbutton +nc
-# package seems to be broken:
-#./shoppe install boredbutton-git +nc
-#./shoppe remove boredbutton-git +nc
+! bored
 
 ./shoppe update
-#./shoppe upgrade
+./shoppe upgrade
