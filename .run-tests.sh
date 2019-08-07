@@ -21,3 +21,6 @@ ls ~/.config/shoppe/*
 
 ./shoppe update
 ./shoppe upgrade
+./shoppe info boredbutton
+! ./shoppe info pkgthatdoesnotexist
+./shoppe listall

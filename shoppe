@@ -13,8 +13,7 @@
 # Do not leave empty lines after comments, unless the comments are important in some way.
 
 ## TODO
-# Add upgrades
-# Add basic package search (package search, list all packages)
+# Test if upgrades actually work
 # Fix package installation order (dependencies first, full packages last)
 # Re-add all package managers and add query and listall commands
 # (at this point rewrite will be moved to master, and the old master will be moved to legacy)
@@ -137,10 +136,10 @@ pkg_fetch() {
 	[[ "$bestline" == "$originalline" ]] && echo -e "$p_info $package is already up to date." && current_uptodate="true" && return 0
 	mkdir "$tmpdir/$package"
 	case $repotofetch in
-		"local: "*) cp "${repotofetch/local\:\ /}/$package/shoppepkg" "$tmpdir/$package/" && success="1"
-					[[ -e "${repotofetch/local\:\ /}/$package/content.tar.gz" ]] && cp "${repotofetch/local\:\ /}/$package/content.tar.gz" "$tmpdir/$package/";;
-		"http: "*)  wget -q "${repotofetch/http\:\ /}/$package/shoppepkg" -O "$tmpdir/$package/shoppepkg"
-					! wget -q "${repotofetch/http\:\ /}/$package/content.tar.gz" -O "$tmpdir/$package/content.tar.gz" && echo -e "$p_warn Prebuilt files not found, defaulting to build mode..." && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg";;
+		"local: "*) cp "${repotofetch/local\:\ /}/$package/shoppepkg" "$tmpdir/$package/" && success="1" && [[ "$forcebuild" == "true" ]] && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg"
+					! [[ "$forcebuild" == "true" ]] && [[ -e "${repotofetch/local\:\ /}/$package/content.tar.gz" ]] && cp "${repotofetch/local\:\ /}/$package/content.tar.gz" "$tmpdir/$package/";;
+		"http: "*)  wget -q "${repotofetch/http\:\ /}/$package/shoppepkg" -O "$tmpdir/$package/shoppepkg" && success="1" && && [[ "$forcebuild" == "true" ]] && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg"
+					! [[ "$forcebuild" == "true" ]] && ! wget -q "${repotofetch/http\:\ /}/$package/content.tar.gz" -O "$tmpdir/$package/content.tar.gz" && echo -e "$p_warn Prebuilt files not found, defaulting to build mode..." && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg";;
 		*) echo -e "$p_debug Repo data file for id $repo does not contain repository path! Have you been tampering with the file? Run shoppe update to fix this.";;
 	esac
 }
@@ -409,6 +408,28 @@ shoppe_upgrade() {
 	done
 }
 
+shoppe_info() {
+	[[ -z "$packages" ]] && echo -e "$p_error No packages to display!"
+	for package in $packages; do
+		forcebuild="true"
+		! pkg_fetch $package && echo -e "$p_error Package $package does not exist!" && exit 1
+		source "$tmpdir/$package/shoppepkg"
+		echo -e "$p_info Information about $package:"
+		grep "^$package " "$pkglist" &>"$tmpdir/pkgline" && echo -e "[Installed] ($(cat $tmpdir/pkgline))"
+		echo -e "Version: $pkgver (package revision $revision)"
+		echo -e "License: $license"
+		[[ "$depends" ]] && echo -e "Dependencies: $depends"
+		[[ "$makedepends" ]] && echo -e "Make dependencies: $makedepends"
+		[[ "$optional" ]] && echo -e "Optional dependencies: $optional"
+	done
+	return 0
+}
+
+shoppe_listall() {
+	cat "$pkglist"
+	return 0
+}
+
 shoppe_fetch() {
 	# Fetches package files for packages
 	# Usage: packages="<packages>" shoppe_fetch
@@ -423,7 +444,8 @@ case $1 in
 		'update') command="shoppe_update";;
 		'upgrade') command="shoppe_upgrade";;
 		'fetch') command="shoppe_fetch";;
-		'query') command="shoppe_query"; subcommand="$2";;
+		'info') command="shoppe_info";;
+		'listall') command="shoppe_listall";;
 esac
 nocmd="${*/$1/}"
 nocmd="${nocmd/$subcommand/}"
