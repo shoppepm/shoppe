@@ -13,9 +13,8 @@
 # Do not leave empty lines after comments, unless the comments are important in some way.
 
 ## TODO
-# Test if upgrades actually work
+# Fix upgrades
 # Fix package installation order (dependencies first, full packages last)
-# Re-add all package managers and add query and listall commands
 # Add --help switch and manpage
 # (at this point rewrite will be moved to master, and the old master will be moved to legacy)
 # More authentication methods for commands that use sudo
@@ -216,7 +215,7 @@ pkg_remove() {
 ## Frontend
 
 # Supported package managers:
-availablePM="apt apt-get dnf yum yay yaourt pacaur pacman"
+availablePM="apt apt-get dnf yum yay yaourt pacaur pacman zypper apk eopkg"
 
 # shellcheck disable=SC2086
 apt_query() {
@@ -243,6 +242,14 @@ frontend_init() {
 			frontend_query="apt_query"
 			frontend_listall="apt-cache pkgnames" # TODO: This only shows package names but not versions. Fix that, eventually.
 			;;
+		dnf|yum) # dnf/yum (Fedora, CentOS, Red Hat and related)
+			frontend_install="sudo $pm install"
+			frontend_remove="sudo $pm remove"
+			frontend_update="sudo $pm update"
+			frontend_upgrade="sudo $pm upgrade"
+			frontend_query="$pm search"
+			frontend_listall="rpm -qa | sed -i 's/\:/\ 0\ /g'"
+			;;
 		yay|yaourt|pacaur) # AUR helpers (Arch Linux)
 			frontend_install="$pm -Sy --needed"
 			frontend_remove="$pm -R"
@@ -258,6 +265,30 @@ frontend_init() {
 			frontend_upgrade="sudo $pm -Syu"
 			frontend_query="sudo $pm -Q"
 			frontend_listall="$pm -Q"
+			;;
+		zypper) # zypper (SLES, openSUSE-based)
+			frontend_install="sudo $pm install"
+			frontend_remove="sudo $pm remove"
+			frontend_update="sudo dnf clean expire-cache && sudo dnf check-update"
+			frontend_upgrade="sudo $pm update"
+			frontend_query="$pm info"
+			frontend_listall="rpm -qa | sed -i 's/\:/\ 0\ /g'"
+			;;
+		apk) # apk (Alpine Linux, postmarketOS)
+			frontend_install="sudo $pm add"
+			frontend_remove="sudo $pm del"
+			frontend_update="sudo $pm update"
+			frontend_upgrade="sudo $pm upgrade"
+			frontend_query="$pm info"
+			frontend_listall="$pm search -v"
+			;;
+		eopkg) # eopkg (Solus)
+			frontend_install="sudo $pm install"
+			frontend_remove="sudo $pm remove"
+			frontend_update="sudo $pm update-repo"
+			frontend_upgrade="sudo $pm upgrade"
+			frontend_query="sudo $pm info"
+			frontend_listall="sudo $pm list-installed"
 			;;
 	esac
 }
@@ -311,8 +342,7 @@ shoppe_install() {
 	toinstall="$(echo -e "${toinstall}" | sed -e 's/^[[:space:]]*//')"
 	tofrontend="$(echo -e "${tofrontend}" | sed -e 's/^[[:space:]]*//')"
 	[[ -z "$toinstall" ]] && [[ -z "$tofrontend" ]] && echo -e "$p_error Nothing to install!" && exit 1
-	echo -e "  $p_info This will install the following packages: "
-	echo -e "$toinstall"
+	[[ "$toinstall" ]] && echo -e "  $p_info This will install the following packages:\n$toinstall"
 	[[ "$tofrontend" ]] && echo -e "  $p_info Using frontend for:\n$tofrontend"
 	yesnotxt="Continue?" yesno y
 	[[ "$choice" == "no" ]] && exit 1
