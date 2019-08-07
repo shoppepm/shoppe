@@ -150,6 +150,7 @@ pkg_fetch() {
 					! [[ "$forcebuild" == "true" ]] && ! wget -q "${repotofetch/http\:\ /}/$package/content.tar.gz" -O "$tmpdir/$package/content.tar.gz" && echo -e "$p_warn Prebuilt files not found, defaulting to build mode..." && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg";;
 		*) echo -e "$p_debug Repo data file for id $repo does not contain repository path! Have you been tampering with the file? Run shoppe update to fix this.";;
 	esac
+	if [[ "$success" == "1" ]]; then return 0; else return 1; fi
 }
 
 # Package helper functions
@@ -280,7 +281,7 @@ frontend_init() {
 			frontend_update="sudo $pm update"
 			frontend_upgrade="sudo $pm upgrade"
 			frontend_query="$pm info"
-			frontend_listall="$pm search -v"
+			frontend_listall="$pm info" # TODO: Fancy sed command that moves the version to the end and revision to the middle (use apk info -v for that)
 			;;
 		eopkg) # eopkg (Solus)
 			frontend_install="sudo $pm install"
