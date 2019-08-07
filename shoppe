@@ -398,6 +398,8 @@ shoppe_update() {
 
 # Upgrade packages
 shoppe_upgrade() {
+	# I am currently busy fixing other things, so I'll just leave this here:
+	echo -e "$p_debug Upgrades are broken and only the frontend will work correctly. This will be fixed soon:tm:"
 	shoppe_update
 	rm -rf "$tmpdir"
 	mkdir "$tmpdir"
