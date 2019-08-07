@@ -170,7 +170,7 @@ pkg_install() {
 	# Usage: package="packagetoinstall" pkg_install
 	pkg_cleanup
 	nobuild="true"
-	cd "$tmpdir/$package" || echo -e "$p_error Could not get into temporary directory for $package. Make sure that you didn't wipe your temporary directory during the install process and that you can write to the temporary directory (currently $tmpdir)." && exit 1
+	! cd "$tmpdir/$package" && echo -e "$p_error Could not get into temporary directory for $package. Make sure that you didn't wipe your temporary directory during the install process and that you can write to the temporary directory (currently $tmpdir)." && exit 1
 	source shoppepkg
 	[[ "$forcebuild" == "true" ]] && nobuild="false"
 	# shellcheck disable=SC2154
