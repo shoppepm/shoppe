@@ -10,12 +10,7 @@ chmod +x shoppe
 ./shoppe install shoppe-rewrite
 ```
 
-*See also: [Getting Started](docs/getting-started.md)*
+Use ``shoppe help`` to display all available commands and switches.
 
-## About this branch
+You can find more documentation in the ``/usr/share/doc/shoppe`` folder, or browse the docs folder in this repository.
 
-This is a clearer rewrite of the Shoppe package manager. It will also provide more documentation for the inner workings of the program.
-
-Compatibility between older versions of shoppe and this rewrite will NOT be preserved. There are no plans for releasing any tools for upgrades.
-
-You can read the documentation by browsing the docs folder. All documentation is written in the Markdown format.

@@ -2,9 +2,9 @@
 
 ## Repository structure
 
-A repository contains the list of packages present in the repository and the packages themselves.. Each package has its own folder, which contains the compiled package (content.tar.gz) and the shoppepkg file *(See also: [Shoppe package file](shoppepkg.md))*.
+A repository contains the list of packages present in the repository and the packages themselves. Each package has its own folder, which contains the compiled package (content.tar.gz) and the shoppepkg file *(See also: [Shoppe package file](packages.md))*.
 
-The repository metadata contains information about every package present in the repository,
+The repository metadata contains information about every package present in the repository.
 
 ## Configuration file ($configdir/repositories)
 

@@ -1,9 +1,8 @@
-$ Shoppe package file
+# Package
 
-Each shoppe package has its own shoppe package file, which contains all information about the package such as its name, version, revision as well as building and installation instructions.
+Each shoppe package has two core files: shoppepkg, which contains the information about the package, and content.tar.gz, which contains the files for the package. If content.tar.gz is not present, the package will be built manually.
 
-
-## shoppe package
+## Example shoppe package
 
 ```bash
 # Basic information
@@ -12,7 +11,7 @@ pkgdesc="A package manager frontend/replacement" # Short description of the pack
 pkgarch="all" # The architecture this package is meant for. If it runs on all architectures, use 'all', otherwise use the architecture name that 'uname -s' returns.
 pkgver="v0.1" # Package version. For packages being built from the newest source, this should be set to "rolling".
 revision="1" # Package revision. Bump this every time you change the package (eg. update to next version, fix some commands). For packages being built from newest source, this should be set to "rolling".
-license="GPL 3-Clause" # License. This is required.
+license="GPL 3-Clause" # License. This is optional.
 website="https://github.com/knuxify/shoppe" # Project website. Optional. If this is an open-source project, link the source page.
 depends="bash git curl wget" # Dependencies, separated by spaces.
 # optional="" # Optional dependencies, separated by spaces.

@@ -21,8 +21,8 @@ This file contains packages, package revisions and package versions.
 ## Configuration variables
 
 - skipfrontend (true/false) - if true, the frontend will be ignored. This can be enforced at startup with the +sf switch.
-
 - configdir - Default directory for all configuration files. Must be user-writeable.
 - repofile - File containing all repositories.
 - pkglist - File containing all installed packages.
 - pkginfo - Directory containing information about certain packages.
+- tmpdir - Temporary directory.
