@@ -127,18 +127,8 @@ yesno() {
 		n|N) yesnochoice="[y/N]";;
 		*) echo -e "$p_debug yesno function called without a default choice! This will break with noconfirm. Please use yesno <defaultchoice> where defaultchoice is y or n.";;
 	esac
-    if [[ "$noconfirm" != "true" ]]; then
-        choice=null
-        until [[ "$choice" == "y" ]] || [[ "$choice" == "Y" ]] || [[ "$choice" == "n" ]] || [[ "$choice" == "N" ]]; do
-			# shellcheck disable=SC2154
-            read -p "$yesnotxt $yesnochoice " -ren1 choice
-            if [ -z "$choice" ]; then choice="$1"; fi
-        done
-    else
-        echo "$yesnotxt $yesnochoice $1"
-        choice="$1"
-    fi
-    if [[ "$choice" == "Y" || "$choice" == "y" ]]; then choice="yes"; else choice="no"; fi
+	read -p "$yesnotxt $yesnochoice " -re choice
+	if [[ "$choice" == "Y" || "$choice" == "y" ]]; then choice="yes"; else choice="no"; fi
 }
 
 # shellcheck disable=SC2154
