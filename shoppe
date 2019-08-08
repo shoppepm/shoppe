@@ -127,7 +127,12 @@ yesno() {
 		n|N) yesnochoice="[y/N]";;
 		*) echo -e "$p_debug yesno function called without a default choice! This will break with noconfirm. Please use yesno <defaultchoice> where defaultchoice is y or n.";;
 	esac
-	read -p "$yesnotxt $yesnochoice " -re choice
+	if [[ "$noconfirm" == "true" ]]; then
+		echo "$yesnotxt $yesnochoice $1"
+		choice="$1"
+	else
+		read -p "$yesnotxt $yesnochoice " -re choice
+	fi
 	if [[ "$choice" == "Y" || "$choice" == "y" ]]; then choice="yes"; else choice="no"; fi
 }
 
@@ -492,8 +497,6 @@ shoppe_update() {
 
 # Upgrade packages
 shoppe_upgrade() {
-	# I am currently busy fixing other things, so I'll just leave this here:
-	echo -e "$p_debug Upgrades are broken and only the frontend will work correctly. This will be fixed soon:tm:"
 	shoppe_update
 	rm -rf "$tmpdir"
 	mkdir "$tmpdir"
