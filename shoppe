@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/bash -x
 # shellcheck disable=SC1090,SC2001,SC1091,SC2219
 ##
 ## shoppe - a portable package manager that integrates with your current package manager
@@ -247,12 +247,14 @@ pkg_install() {
 	shopt -s globstar
 	[[ -e "$pkginfo/$package/content" ]] && rm "$pkginfo/$package/content"
 	for file in "$tmpdir/$package/content"/**; do
-		echo "${file/$PWD/}" >> "$pkginfo/$package/content"
+		# This doesn't include directories that are made by the package,
+		# but that's still better than adding the entire / directory.
+		[[ -f "$file" ]] && echo "${file/$PWD\/content/}" >> "$pkginfo/$package/content"
 	done
 	shopt -u globstar
 	type -t shoppepostinstall &>/dev/null && echo -e "  - $p_info Running post-install..." && ! shoppepostinstall && echo -e "$p_warn Post-install script failed, but package's files were already copied! It is reccomended to reinstall the package, and if that doesn't help, contact the package's maintainer."
 	if grep "^$package " "$pkglist"; then
-		grep -vwE "^$package " "$pkglist" > "${pkglist}-tmp"
+		sed "/^$package\ /d" "$pkglist" > "${pkglist}-tmp"
 		mv "${pkglist}-tmp" "$pkglist"
 	fi
 	# shellcheck disable=SC2154
@@ -267,7 +269,7 @@ pkg_remove() {
 	pkg_cleanup
 	! xargs sudo rm -f < "$pkginfo/$package/content" && echo -e "$p_error Failed to remove $package." && exit 1
 	rm -rf "${pkginfo:?}/${package:?}"
-	grep -vwE "^$package " "$pkglist" > "${pkglist}-tmp"
+	sed "/^$package\ /d" "$pkglist" > "${pkglist}-tmp"
 	mv "${pkglist}-tmp" "$pkglist"
 }
 
