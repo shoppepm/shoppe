@@ -9,6 +9,9 @@ echo "$(echo '#!/bin/bash -x' && grep -v '^\#\!\/' shoppe)" > shoppe-testing
 mv shoppe-testing shoppe
 chmod +x shoppe
 
+! ./shoppe
+./shoppe help
+
 ./shoppe install boredbutton +nc
 
 [[ -e "/usr/bin/bored" ]]

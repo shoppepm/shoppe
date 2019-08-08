@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC1090,SC2001,SC1091,SC2219
 ##
-## shoppe - a lightweight portable package manager that integrates with your current package manager
+## shoppe - a portable package manager that integrates with your current package manager
+version="1.0"
 ##
 ## Licensed under the MIT License
 
@@ -14,12 +15,11 @@
 
 ## TODO
 # Fix upgrades
-# Fix package installation order (dependencies first, full packages last)
-# Add --help switch and manpage
-# (at this point rewrite will be moved to master, and the old master will be moved to legacy)
-# More authentication methods for commands that use sudo
-# Clear up documentation
 # Implement optional dependencies
+# Add portable packages (tar files that contain shoppepkg and content.tar.gz)
+# (at this point rewrite will be moved to master, and the old master will be moved to legacy)
+# Add more authentication methods for commands that use sudo
+# Clear up documentation
 
 ### BEGIN CODE ###
 
@@ -49,13 +49,76 @@ tmpdir="$configdir/tmp"
 force="false"
 
 [[ ! -e "$HOME/.config" ]] && mkdir "$HOME/.config"
-[[ ! -e "$configdir" ]] && mkdir "$configdir"
-[[ ! -e "$pkginfo" ]] && mkdir "$pkginfo"
 [[ -e "$configdir/config" ]] && source "$configdir/config"
+[[ ! -e "$configdir" ]] && mkdir -p "$configdir"
+[[ ! -e "$pkginfo" ]] && mkdir "$pkginfo"
 [[ ! -e "$configdir/repodata" ]] && mkdir "$configdir/repodata"
 [[ ! -e "$repolist" ]] && echo "http: https://raw.githubusercontent.com/shoppepm/shoppe-repos/master" > "$repolist"
 [[ ! -e "$pkglist.frontend" ]] && touch "$pkglist.frontend"
 [[ ! -e "$pkglist" ]] && touch "$pkglist"
+
+## Help (--help)
+shoppe_help() { echo "\
+Usage: shoppe function [options]
+
+Shoppe is a portable package manager that uses the system's native
+package manager to suppliment packages that are not available in
+shoppe's repositories. It can act as a frontend for most package
+managers, and also works as a package manager itself.
+
+It can serve as an alternative to projects like snap or flatpak,
+as it allows packages to be installed on multiple distributions
+without having to create separate packages for each distribution.
+Unlike these projects, however, shoppe is not sandboxed,
+and everything is installed natively.
+
+More documentation is available at /usr/share/doc/shoppe.
+
+Commands:
+
+	install
+		Installs packages.
+
+	remove
+		Removes packages.
+
+	update
+		Updates repository data.
+
+	upgrade
+		Upgrades all packages.
+
+	info
+		Shows information about a package.
+
+	listall
+		Lists all installed packages.
+
+	help
+		Displays a short summary of available commands.
+
+Options:
+
+	+nc, +noconfirm, --noconfirm, -y
+		Automatically answers all prompts.
+
+	+force, +f, --force, -f
+		Forces certain commands.
+
+	+sf, +skipfrontend
+		Skips the frontend.
+
+	+h, +help, -h, --help
+		Displays a short summary of available commands.
+
+	+fb, +forcebuild
+		Forces packages to be built manually.
+
+	+pm, +packagemake
+		Creates a package.
+"
+exit 0
+}
 
 ## Helper functions
 yesno() {
@@ -486,6 +549,7 @@ shoppe_fetch() {
 }
 
 ## Option parsing
+[[ -z $1 ]] && echo -e "$p_error Nothing to do! Use 'shoppe help' for information about available commands." && exit 1
 case $1 in
 		'install') command="shoppe_install";;
 		'remove') command="shoppe_remove";;
@@ -494,6 +558,9 @@ case $1 in
 		'fetch') command="shoppe_fetch";;
 		'info') command="shoppe_info";;
 		'listall') command="shoppe_listall";;
+		'help'|'--help'|'-h'|'+help'|'+h') shoppe_help;;
+		'--version'|'-v'|'version') echo "shoppe $version"; exit 0;;
+		*) echo -e "$p_error Invalid command: $1. Use 'shoppe help' for information about available commands."; exit 1;;
 esac
 nocmd="${*/$1/}"
 for parse in $nocmd; do
@@ -506,7 +573,6 @@ done
 command=$(echo "$command" | sed -e 's/^[ \t]*//')
 packages=$(echo "$packages" | sed -e 's/^[ \t]*//')
 switches=$(echo "$switches" | sed -e 's/^[ \t]*//')
-[[ -z $command ]] && echo -e "$p_error Nothing to do!" && exit 1
 for switch in $shoppeswitches; do
 	case $switch in
 		"+skipfrontend"|"+sf") skipfrontend="true";;
@@ -514,10 +580,20 @@ for switch in $shoppeswitches; do
 		"+forcebuild"|"+fb") nobuild="false"; forcebuild="true";;
 		"+packagemake"|"+pm") packagemake="true"; nobuild="false";;
 		"+f"|"+force") force="true";;
+		'+h'|'+help') shoppe_help;;
+		'+version'|'+v') echo "shoppe $version"; exit 0;;
 	esac
 done
-[[ "$switch" == *"--noconfirm"* ]] && noconfirm="true"
-
+for switch in $switches; do
+	case $switch in
+		--noconfirm|-y) noconfirm="true";;
+		--help|-h) shoppe_help;;
+		--force) force="true";;
+		'--version'|'-v') echo "shoppe $version"; exit 0;;
+	esac
+done
 [[ "$skipfrontend" != "true" ]] && frontend_init
 
 $command
+
+return 0
