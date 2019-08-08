@@ -44,7 +44,7 @@ configdir="$HOME/.config/shoppe"
 repolist="$configdir/repositories"
 pkglist="$configdir/pkglist"
 pkginfo="$configdir/pkginfo"
-tmpdir="$configdir/tmp"
+tmpdir="/tmp"
 
 force="false"
 
