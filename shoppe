@@ -14,7 +14,6 @@ version="1.0"
 # Do not leave empty lines after comments, unless the comments are important in some way.
 
 ## TODO
-# Fix upgrades
 # Implement optional dependencies
 # Add portable packages (tar files that contain shoppepkg and content.tar.gz)
 # (at this point rewrite will be moved to master, and the old master will be moved to legacy)
@@ -162,13 +161,10 @@ get_source() {
 pkg_fetch() {
 	# This is an internal function for fetching a package.
 	# It is not meant to be called with multiple packages.
-	# Usage: pkg_fetch <package>
+	# Usage: package="packagetofetch" pkg_fetch
 	# Usage example: use in 'for' loops
 	current_uptodate="false"
 	success="0"
-	[[ -z "$1" ]] && echo -e "$p_debug No package to fetch! This is most likely an issue with the code."
-	[[ "$2" ]] && echo -e "$p_debug fetch function called with multiple packages! Only downloading $1. Consider using a for loop."
-	package="$1"
 	repoID=0
 	echo -e "$p_info Fetching package: $package"
 	while IFS="" read -r repo || [[ -n "$repo" ]]; do
@@ -203,9 +199,27 @@ pkg_fetch() {
 	mkdir "$tmpdir/$package"
 	case $repotofetch in
 		"local: "*) cp "${repotofetch/local\:\ /}/$package/shoppepkg" "$tmpdir/$package/" && success="1" && [[ "$forcebuild" == "true" ]] && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg"
-					! [[ "$forcebuild" == "true" ]] && [[ -e "${repotofetch/local\:\ /}/$package/content.tar.gz" ]] && cp "${repotofetch/local\:\ /}/$package/content.tar.gz" "$tmpdir/$package/";;
 		"http: "*)  wget -q "${repotofetch/http\:\ /}/$package/shoppepkg" -O "$tmpdir/$package/shoppepkg" && success="1" && [[ "$forcebuild" == "true" ]] && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg"
-					! [[ "$forcebuild" == "true" ]] && ! wget -q "${repotofetch/http\:\ /}/$package/content.tar.gz" -O "$tmpdir/$package/content.tar.gz" && echo -e "$p_warn Prebuilt files not found, defaulting to build mode..." && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg";;
+		*) echo -e "$p_debug Repo data file for id $repo does not contain repository path! Have you been tampering with the file? Run shoppe update to fix this.";;
+	esac
+	if [[ "$success" == "1" ]]; then return 0; else return 1; fi
+}
+
+pkg_fetch_content() {
+	# This is a function used to fetch the content.tar.gz of a package.
+	# Before this function, pkg_fetch pulled the content as well.
+	# Considering the usual usage of pkg_fetch (fetch package info
+	# before progressing with the actual install process) downloading
+	# the content.tar.gz before the user confirmed the installation
+	# process is kind of a waste of bandwitdh and time.
+	# Thus, the function was split.
+	# Usage: package="packagetofetch" pkg_fetch_content
+	# Usage example: use in for loops
+	[[ "$forcebuild" == "true" ]] && return 0
+	success="0"
+	case $repotofetch in
+		"local: "*) [[ -e "${repotofetch/local\:\ /}/$package/content.tar.gz" ]] && cp "${repotofetch/local\:\ /}/$package/content.tar.gz" "$tmpdir/$package/";;
+		"http: "*)  ! wget -q "${repotofetch/http\:\ /}/$package/content.tar.gz" -O "$tmpdir/$package/content.tar.gz" && echo -e "$p_warn Prebuilt files not found, defaulting to build mode..." && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg";;
 		*) echo -e "$p_debug Repo data file for id $repo does not contain repository path! Have you been tampering with the file? Run shoppe update to fix this.";;
 	esac
 	if [[ "$success" == "1" ]]; then return 0; else return 1; fi
@@ -392,7 +406,7 @@ shoppe_install() {
 			pkg_cleanup
 			success="0"
 			[[ "$pm" ]] && $frontend_query "$package" &>/dev/null && tofrontend="$tofrontend $package" && tocheck="${tocheck/$package/}" && continue
-			pkg_fetch "$package"
+			pkg_fetch
 			source "$tmpdir/$package/shoppepkg"
 			if [[ "$force" != "true" ]] && grep "^$package $revision $pkgver" "$pkglist" &>/dev/null; then
 				echo -e "$p_info Package $package is already installed, skipping..."
@@ -420,6 +434,8 @@ shoppe_install() {
 	# shellcheck disable=SC2086
 	[[ "$tofrontend" ]] && echo -e "$p_info Installing packages from frontend..." && if $frontend_install $tofrontend; then echo -e "$p_info Updating installed package list..." && frontend_harvest; else echo -e "$p_error Failed to install." && exit 1; fi
 	for package in $toinstall; do
+		echo -e "$p_info Fetching prebuilt files..."
+		pkg_fetch_content
 		echo -e "$p_info Installing $package..."
 		let currentpkg++
 		pkg_install
@@ -505,7 +521,7 @@ shoppe_upgrade() {
 	while IFS="" read -r line || [[ -n "$line" ]]; do
 		# shellcheck disable=SC2086
 		package="$(echo $line | awk '{print $1;}')"
-		pkg_fetch "$package"
+		pkg_fetch
 		[[ "$current_uptodate" != "true" ]] && toupgrade="$toupgrade $package"
 	done < "$pkglist"
 	toupgrade="$(echo -e "${toupgrade}" | sed -e 's/^[[:space:]]*//')"
@@ -517,6 +533,8 @@ shoppe_upgrade() {
 	[[ "$choice" == "no" ]] && exit 1
 	[[ "$pm" ]] && $frontend_upgrade
 	for package in $toupgrade; do
+		echo -e "$p_info Fetching prebuilt files..."
+		pkg_fetch_content
 		echo -e "$p_info Upgrading $package..."
 		! pkg_remove && echo -e "$p_error Failed to upgrade $package." && exit 1
 		! pkg_install && echo -e "$p_error Failed to upgrade $package." && exit 1
@@ -528,7 +546,7 @@ shoppe_info() {
 	[[ -z "$packages" ]] && echo -e "$p_error No packages to display!"
 	for package in $packages; do
 		forcebuild="true"
-		! pkg_fetch "$package" && echo -e "$p_error Package $package does not exist!" && exit 1
+		! pkg_fetch && echo -e "$p_error Package $package does not exist!" && exit 1
 		source "$tmpdir/$package/shoppepkg"
 		echo -e "$p_info Information about $package:"
 		grep "^$package " "$pkglist" &>"$tmpdir/pkgline" && echo -e "[Installed] ($(cat $tmpdir/pkgline))"
