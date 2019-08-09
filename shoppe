@@ -15,8 +15,6 @@ version="1.0"
 
 ## TODO
 # Implement optional dependencies
-# Add a file that contains packages installed as dependencies (and allow packages to be switched to manually installed mode)
-# (at this point rewrite will be moved to master, and the old master will be moved to legacy)
 # Add more authentication methods for commands that use sudo
 # Clear up documentation
 
@@ -42,6 +40,7 @@ p_debug="\033[35m~!\033[0m"
 configdir="$HOME/.config/shoppe"
 repolist="$configdir/repositories"
 pkglist="$configdir/pkglist"
+deplist="$configdir/deplist"
 pkginfo="$configdir/pkginfo"
 tmpdir="/tmp"
 
@@ -53,9 +52,8 @@ force="false"
 [[ ! -e "$pkginfo" ]] && mkdir "$pkginfo"
 [[ ! -e "$configdir/repodata" ]] && mkdir "$configdir/repodata"
 [[ ! -e "$repolist" ]] && echo "http: https://raw.githubusercontent.com/shoppepm/shoppe-repos/master" > "$repolist"
-[[ ! -e "$pkglist.frontend" ]] && touch "$pkglist.frontend"
-[[ ! -e "$pkglist" ]] && touch "$pkglist"
-
+#[[ ! -e "$pkglist.frontend" ]] && touch "$pkglist.frontend"
+#[[ ! -e "$pkglist" ]] && touch "$pkglist"
 ## Help (--help)
 shoppe_help() { echo "\
 Usage: shoppe function [options]
@@ -278,7 +276,12 @@ pkg_install() {
 	# shellcheck disable=SC2154
 	echo "$package $revision $pkgver" >> "$pkglist"
 	# shellcheck disable=SC2154
-	if [[ "$nobuild" == "false" ]] && [[ "$makedepends" ]]; then [[ "$depends" ]] && echo "$makedepends $depends" > "$pkginfo/$package/dependencies"; else [[ "$depends" ]] && echo "$depends" > "$pkginfo/$package/dependencies"; fi
+	if grep "^$package " "$deplist"; then
+		sed "/^$package\ /d" "$deplist" > "${deplist}-tmp"
+		mv "${deplist}-tmp" "$deplist"
+	fi
+	[[ "$depends" ]] && echo "$depends " >> "$pkginfo/$package/dependencies" && for dep in $depends; do echo "$dep " >> "$deplist"; done
+	[[ "$nobuild" == "false" ]] && [[ "$makedepends" ]] && echo "$makedepends " >> "$pkginfo/$package/dependencies" && for dep in $makedepends; do echo "$dep" >> "$deplist"; done
 }
 
 pkg_remove() {
@@ -413,6 +416,7 @@ shoppe_install() {
 			pkg_fetch
 			source "$tmpdir/$package/shoppepkg"
 			if [[ "$force" != "true" ]] && grep "^$package $revision $pkgver" "$pkglist" &>/dev/null; then
+				grep "^$package " "$deplist" &>/dev/null && echo -e "$p_info Package $package was installed as a dependency. Setting as manually installed and skipping install..." && sed "/^$package\ /d" "$deplist" > "${deplist}-tmp" && mv "${deplist}-tmp" "$deplist"
 				echo -e "$p_info Package $package is already installed, skipping..."
 				tocheck="${tocheck/$package/}"
 				continue
@@ -467,15 +471,22 @@ shoppe_remove() {
 			else
 				! grep "^$package " "$pkglist" &>/dev/null && echo -e "$p_info Package $package is not installed, skipping..." && tocheck="${tocheck/$package/}" && continue
 			fi
-			shopt -s globstar
-			for dir in "$pkginfo"/**; do
-				if [[ -e "$dir/dependencies" ]] && grep "^$package" "$dir/dependencies"; then
-					tocheck="${tocheck/$package/}"
-					depfound="true"
-					break
-				fi
-			done
-			[[ "$depfound" == "true" ]] && continue
+			# If the package:
+			# - isn't set as installed manually
+			# - is a dependency to another package
+			# it will be skipped, unless the user provides the --force switch.
+			if [[ "$force" != "true" ]]; then
+				grep "^$package " "$deplist" && tocheck="${tocheck/$package/}" && continue
+				for dir in "$pkginfo"/*; do
+					if [[ "$(basename $(dirname $dir))" != "$package" ]] && [[ -e "$dir/dependencies" ]] && grep "^$package " "$dir/dependencies" &>/dev/null; then
+						tocheck="${tocheck/$package/}"
+						cont="true"
+						break
+					fi
+				done
+				[[ "$cont" == "true" ]] && continue
+			fi
+			grep "^$package " "$deplist" &>/dev/null && tocheck="${tocheck/$package/}" && continue
 			grep "^$package " "$pkglist.frontend" && tofrontend="$tofrontend $package" && currentfrontend="true"
 			tocheck="${tocheck/$package/}"
 			# shellcheck disable=SC2086
