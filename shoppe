@@ -15,7 +15,7 @@ version="1.0"
 
 ## TODO
 # Implement optional dependencies
-# Add portable packages (tar files that contain shoppepkg and content.tar.gz)
+# Add a file that contains packages installed as dependencies (and allow packages to be switched to manually installed mode)
 # (at this point rewrite will be moved to master, and the old master will be moved to legacy)
 # Add more authentication methods for commands that use sudo
 # Clear up documentation
@@ -167,6 +167,9 @@ pkg_fetch() {
 	success="0"
 	repoID=0
 	echo -e "$p_info Fetching package: $package"
+	mkdir "$tmpdir/$package"
+	[[ "$package" = *"http"*"://"* ]] && wget "$package" && if tar -xf "$package" -C "$tmpdir/$package"; then return 0; else echo -e "$p_error Failed to extract $package."; fi
+	[[ -f "$package" ]] && if tar -xf "$package" -C "$tmpdir/$package"; then return 0; else echo -e "$p_error Failed to extract $package."; fi
 	while IFS="" read -r repo || [[ -n "$repo" ]]; do
 		let repoID++
 		if grep "^$package " "$configdir/repodata/$repoID" &>/dev/null; then
@@ -216,6 +219,7 @@ pkg_fetch_content() {
 	# Usage: package="packagetofetch" pkg_fetch_content
 	# Usage example: use in for loops
 	[[ "$forcebuild" == "true" ]] && return 0
+	[[ -f "$package" ]] && return 0 # already unpacked in pkg_fetch
 	success="0"
 	case $repotofetch in
 		"local: "*) [[ -e "${repotofetch/local\:\ /}/$package/content.tar.gz" ]] && cp "${repotofetch/local\:\ /}/$package/content.tar.gz" "$tmpdir/$package/";;
@@ -441,9 +445,12 @@ shoppe_install() {
 		pkg_install
 		if [[ "$packagemake" == "true" ]]; then
 			tar -czf content.tar.gz content
-			echo -e "$p_debug sha512sum=$(sha512sum content.tar.gz)"
-			mv content.tar.gz "$HOME/$package.tar.gz"
-			echo -e "$p_debug Saved content.tar.gz as $HOME/$package.tar.gz."
+			echo "sha512sum=$(sha512sum content.tar.gz)" >> "$tmpdir/$package/shoppepkg"
+			mkdir "$tmpdir/$package/topackage"
+			mv content.tar.gz "$tmpdir/$package/topackage"
+			mv "$tmpdir/$package/shoppepkg" "$tmpdir/$package/topackage"
+			tar -czf "$HOME/$package.tar.gz" -C "$tmpdir/$package/topackage" .
+			echo -e "$p_debug Package created. Path: $HOME/$package.tar.gz"
 		fi
 	done
 }
