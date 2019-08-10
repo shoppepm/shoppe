@@ -42,7 +42,7 @@ repolist="$configdir/repositories"
 pkglist="$configdir/pkglist"
 deplist="$configdir/deplist"
 pkginfo="$configdir/pkginfo"
-tmpdir="/tmp"
+tmpdir="/tmp/shoppe"
 
 force="false"
 
