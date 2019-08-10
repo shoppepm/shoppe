@@ -252,7 +252,6 @@ pkg_install() {
 	type -t shoppepreinstall &>/dev/null && echo -e "  - $p_info Running pre-install..." && shoppepreinstall
 	if [[ "$nobuild" == "false" ]]; then
 		type -t shoppebuild &>/dev/null && echo -e "  - $p_info Building..." && ! shoppebuild && echo -e "$p_error Failed to build $package." && exit 1
-		type -t shoppeinstall &>/dev/null && echo -e "  - $p_info Installing..." && ! shoppeinstall && echo -e "$p_error Failed to build $package." && exit 1
 	else
 		# shellcheck disable=SC2154
 		[[ "$nobuild" == "true" ]] && [[ "$(sha512sum content.tar.gz)" == "$sha512sum" ]] && tar -xzf content.tar.gz
@@ -274,7 +273,7 @@ pkg_install() {
 		mv "${pkglist}-tmp" "$pkglist"
 	fi
 	# shellcheck disable=SC2154
-	echo "$package $revision $pkgver" >> "$pkglist"
+	echo "$package $pkgrel $pkgver" >> "$pkglist"
 	# shellcheck disable=SC2154
 	if grep "^$package " "$deplist"; then
 		sed "/^$package\ /d" "$deplist" > "${deplist}-tmp"
@@ -415,13 +414,13 @@ shoppe_install() {
 			[[ "$pm" ]] && $frontend_query "$package" &>/dev/null && tofrontend="$tofrontend $package" && tocheck="${tocheck/$package/}" && continue
 			pkg_fetch
 			source "$tmpdir/$package/shoppepkg"
-			if [[ "$force" != "true" ]] && grep "^$package $revision $pkgver" "$pkglist" &>/dev/null; then
+			if [[ "$force" != "true" ]] && grep "^$package $pkgrel $pkgver" "$pkglist" &>/dev/null; then
 				grep "^$package " "$deplist" &>/dev/null && echo -e "$p_info Package $package was installed as a dependency. Setting as manually installed and skipping install..." && sed "/^$package\ /d" "$deplist" > "${deplist}-tmp" && mv "${deplist}-tmp" "$deplist"
 				echo -e "$p_info Package $package is already installed, skipping..."
 				tocheck="${tocheck/$package/}"
 				continue
 			fi
-			if [[ "$pm" ]] && [[ "$force" != "true" ]] && grep "^$package $revision $pkgver" "$pkglist.frontend" &>/dev/null; then
+			if [[ "$pm" ]] && [[ "$force" != "true" ]] && grep "^$package $pkgrel $pkgver" "$pkglist.frontend" &>/dev/null; then
 				echo -e "$p_info Package $package is already installed via frontend, skipping..."
 				tocheck="${tocheck/$package/}"
 				continue
@@ -568,11 +567,11 @@ shoppe_info() {
 		source "$tmpdir/$package/shoppepkg"
 		echo -e "$p_info Information about $package:"
 		grep "^$package " "$pkglist" &>"$tmpdir/pkgline" && echo -e "[Installed] ($(cat $tmpdir/pkgline))"
-		echo -e "Version: $pkgver (package revision $revision)"
+		echo -e "Version: $pkgver (package revision $pkgrel)"
 		echo -e "License: $license"
 		[[ "$depends" ]] && echo -e "Dependencies: $depends"
 		[[ "$makedepends" ]] && echo -e "Make dependencies: $makedepends"
-		[[ "$optional" ]] && echo -e "Optional dependencies: $optional"
+		[[ "$optdepends" ]] && echo -e "Optional dependencies: $optdepends"
 	done
 	return 0
 }
