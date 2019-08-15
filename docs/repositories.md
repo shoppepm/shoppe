@@ -2,7 +2,7 @@
 
 ## Repository structure
 
-A repository contains the list of packages present in the repository and the packages themselves. Each package has its own folder, which contains the compiled package (content.tar.gz) and the shoppepkg file *(See also: [Shoppe package file](packages.md))*.
+A repository contains the list of packages present in the repository and the packages themselves. Each package has its own folder, which contains the compiled package (content.tar.gz) and the whim!pkg file *(See also: [whim! package file](packages.md))*.
 
 The repository metadata contains information about every package present in the repository.
 
@@ -10,7 +10,7 @@ The repository metadata contains information about every package present in the 
 
 *See also: [Configuration](configuration.md)*
 
-This file contains paths to each repository that shoppe should use. Each repository gets its own ID, decided by its position in the repository file (the higher the position is, the lower the ID is; the lower the ID is, the more important that repository is).
+This file contains paths to each repository that whim! should use. Each repository gets its own ID, decided by its position in the repository file (the higher the position is, the lower the ID is; the lower the ID is, the more important that repository is).
 
 Each line contains one repository and follows the following format:
 

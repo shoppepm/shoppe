@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC1090,SC2001,SC1091,SC2219
 ##
-## shoppe - a portable package manager that integrates with your current package manager
+## whim! - a portable package manager that integrates with your current package manager
 version="1.0"
 ##
 ## Licensed under the MIT License
@@ -34,15 +34,15 @@ p_error="\033[31m!!\033[0m"
 p_debug="\033[35m~!\033[0m"
 
 ## Warn when running as root.
-[[ "$EUID" -eq 0 ]] && echo -e "$p_warn Please refrain from using shoppe as root. Things will most likely break."
+[[ "$EUID" -eq 0 ]] && echo -e "$p_warn Please refrain from using whim! as root. Things will most likely break."
 
 ## Configuration. This is overwritten by the main config file ($configdir/config)
-configdir="$HOME/.config/shoppe"
+configdir="$HOME/.config/whim"
 repolist="$configdir/repositories"
 pkglist="$configdir/pkglist"
 deplist="$configdir/deplist"
 pkginfo="$configdir/pkginfo"
-tmpdir="/tmp/shoppe"
+tmpdir="/tmp/whim"
 
 force="false"
 
@@ -51,25 +51,26 @@ force="false"
 [[ ! -e "$configdir" ]] && mkdir -p "$configdir"
 [[ ! -e "$pkginfo" ]] && mkdir "$pkginfo"
 [[ ! -e "$configdir/repodata" ]] && mkdir "$configdir/repodata"
-[[ ! -e "$repolist" ]] && echo "http: https://raw.githubusercontent.com/shoppepm/shoppe-repos/master" > "$repolist"
-#[[ ! -e "$pkglist.frontend" ]] && touch "$pkglist.frontend"
-#[[ ! -e "$pkglist" ]] && touch "$pkglist"
-## Help (--help)
-shoppe_help() { echo "\
-Usage: shoppe function [options]
+[[ ! -e "$repolist" ]] && echo "http: https://raw.githubusercontent.com/whim-pm/whim-repo/master" > "$repolist"
+[[ ! -e "$pkglist.frontend" ]] && touch "$pkglist.frontend"
+[[ ! -e "$pkglist" ]] && touch "$pkglist"
 
-Shoppe is a portable package manager that uses the system's native
+## Help (--help)
+whim_help() { echo "\
+Usage: whim function [options]
+
+whim is a portable package manager that uses the system's native
 package manager to suppliment packages that are not available in
-shoppe's repositories. It can act as a frontend for most package
+whim's repositories. It can act as a frontend for most package
 managers, and also works as a package manager itself.
 
 It can serve as an alternative to projects like snap or flatpak,
 as it allows packages to be installed on multiple distributions
 without having to create separate packages for each distribution.
-Unlike these projects, however, shoppe is not sandboxed,
+Unlike these projects, however, whim is not sandboxed,
 and everything is installed natively.
 
-More documentation is available at /usr/share/doc/shoppe.
+More documentation is available at /usr/share/doc/whim.
 
 Commands:
 
@@ -136,13 +137,14 @@ yesno() {
 # shellcheck disable=SC2154
 get_source() {
 	# This is a function used to get the source from the source variable.
-	# See docs/shoppepkg.md
+	# See docs/whimpkg.md
     if [[ "$sourcetype" == "compressed" ]]; then
         case $source in
             *.tar.gz) sourcetype="targz";;
             *.tar) sourcetype="tar";;
             #*.gz) sourcetype="gz";;
             *.tar.xz) sourcetype="tarxz";;
+			*.zip) sourcetype="zip"
         esac
     fi
     # shellcheck disable=SC2154
@@ -153,6 +155,7 @@ get_source() {
         targz) wget "$source"; tar xzf ./* -C source;;
         #gz) wget "$source"; gunzip ./*;;
         tarxz) wget "$source"; tar xJf ./* -C source;;
+		zip) wget "$source"; mkdir source; unzip ./* -d source;;
     esac
 }
 
@@ -177,8 +180,7 @@ pkg_fetch() {
 	[[ -z "$reposwithpkg" ]] && echo -e "$p_error Could not find package $package. Check if your spelling is correct or add a repository that contains this package." && exit 1
 	bestline=$(grep "^$package " "$pkglist")
 	[[ -z "$bestline" ]] && bestline="$package 0 0"
-	originalline=$(grep "^$package " "$configdir/repodata/$repo")
-	bestline="$originalline"
+	originalline="$bestline"
 	for repo in $reposwithpkg; do
 		# Check which repo contains the highest version.
 		# To do this, loop over every repository with the package,
@@ -188,7 +190,7 @@ pkg_fetch() {
 		# a variable which contains the previous highest repo.
 		currentline=$(grep "^$package " "$configdir/repodata/$repo")
 		# shellcheck disable=SC2086
-		if [[ "$currentline" != "$bestline" ]] && [[ "$(echo $currentline | awk '{print $3;}' | sed 's/[^0-9]*//g')" -gt "$(echo $bestline | awk '{print $3;}' | sed 's/[^0-9]*//g')" ]] && [[ "$(echo $currentline | awk '{print $2;}')" != "$(echo $bestline | awk '{print $2;}')" ]]; then
+		if [[ "$currentline" != "$bestline" ]] && [[ "$(echo $currentline | awk '{print $3;}' | sed 's/[^0-9]*//g')" -gt "$(echo $bestline | awk '{print $3;}' | sed 's/[^0-9]*//g')" ]] && [[ "$(echo $currentline | awk '{print $2;}')" -ge "$(echo $bestline | awk '{print $2;}')" ]]; then
 			bestline="$currentline"
 			bestrepo="$repo"
 		fi
@@ -197,11 +199,10 @@ pkg_fetch() {
 	# shellcheck disable=SC2086
 	repotofetch="$(head -n1 $configdir/repodata/$repo)"
 	[[ "$bestline" == "$originalline" ]] && echo -e "$p_info $package is already up to date." && current_uptodate="true" && return 0
-	mkdir "$tmpdir/$package"
 	case $repotofetch in
-		"local: "*) cp "${repotofetch/local\:\ /}/$package/shoppepkg" "$tmpdir/$package/" && success="1" && [[ "$forcebuild" == "true" ]] && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg";;
-		"http: "*)  wget -q "${repotofetch/http\:\ /}/$package/shoppepkg" -O "$tmpdir/$package/shoppepkg" && success="1" && [[ "$forcebuild" == "true" ]] && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg";;
-		*) echo -e "$p_debug Repo data file for id $repo does not contain repository path! Have you been tampering with the file? Run shoppe update to fix this.";;
+		"local: "*) cp "${repotofetch/local\:\ /}/$package/whimpkg" "$tmpdir/$package/" && success="1" && [[ "$forcebuild" == "true" ]] && echo "nobuild='false'" >> "$tmpdir/$package/whimpkg";;
+		"http: "*)  wget -q "${repotofetch/http\:\ /}/$package/whimpkg" -O "$tmpdir/$package/whimpkg" && success="1" && [[ "$forcebuild" == "true" ]] && echo "nobuild='false'" >> "$tmpdir/$package/whimpkg";;
+		*) echo -e "$p_debug Repo data file for id $repo does not contain repository path! Have you been tampering with the file? Run whim update to fix this.";;
 	esac
 	if [[ "$success" == "1" ]]; then return 0; else return 1; fi
 }
@@ -221,8 +222,8 @@ pkg_fetch_content() {
 	success="0"
 	case $repotofetch in
 		"local: "*) [[ -e "${repotofetch/local\:\ /}/$package/content.tar.gz" ]] && cp "${repotofetch/local\:\ /}/$package/content.tar.gz" "$tmpdir/$package/";;
-		"http: "*)  ! wget -q "${repotofetch/http\:\ /}/$package/content.tar.gz" -O "$tmpdir/$package/content.tar.gz" && echo -e "$p_warn Prebuilt files not found, defaulting to build mode..." && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg";;
-		*) echo -e "$p_debug Repo data file for id $repo does not contain repository path! Have you been tampering with the file? Run shoppe update to fix this.";;
+		"http: "*)  ! wget -q "${repotofetch/http\:\ /}/$package/content.tar.gz" -O "$tmpdir/$package/content.tar.gz" && echo -e "$p_warn Prebuilt files not found, defaulting to build mode..." && echo "nobuild='false'" >> "$tmpdir/$package/whimpkg";;
+		*) echo -e "$p_debug Repo data file for id $repo does not contain repository path! Have you been tampering with the file? Run whim update to fix this.";;
 	esac
 	if [[ "$success" == "1" ]]; then return 0; else return 1; fi
 }
@@ -230,11 +231,11 @@ pkg_fetch_content() {
 # Package helper functions
 
 pkg_cleanup() {
-	# This function cleans up after a shoppe package.
-	# Use this when you're running a loop that sources multiple shoppepkgs.
+	# This function cleans up after a whim package.
+	# Use this when you're running a loop that sources multiple whimpkgs.
 	# Usage: pkg_cleanup
 	unset pkgname pkgdesc pkgarch pkgver revision license website depends optional makedepends conflicts archdependent source sourcetype tag
-	unset -f shoppepreinstall shoppebuild shoppeinstall shoppepostinstall
+	unset -f whimpkg_preinstall whimpkg_build whimpkg_postinstall
 	unset nobuild
 	[[ "$forcebuild" == "true" ]] && nobuild="false"
 }
@@ -245,13 +246,13 @@ pkg_install() {
 	pkg_cleanup
 	nobuild="true"
 	! cd "$tmpdir/$package" && echo -e "$p_error Could not get into temporary directory for $package. Make sure that you didn't wipe your temporary directory during the install process and that you can write to the temporary directory (currently $tmpdir)." && exit 1
-	source shoppepkg
+	source whimpkg
 	[[ "$forcebuild" == "true" ]] && nobuild="false"
 	# shellcheck disable=SC2154
 	[[ "$package" != "$pkgname" ]] && echo -e "$p_debug Package name and pkgname do not match (expected $package, got $pkgname). Please contact the package's maintainer."
-	type -t shoppepreinstall &>/dev/null && echo -e "  - $p_info Running pre-install..." && shoppepreinstall
+	type -t whimpkg_preinstall &>/dev/null && echo -e "  - $p_info Running pre-install..." && whimpkg_preinstall
 	if [[ "$nobuild" == "false" ]]; then
-		type -t shoppebuild &>/dev/null && echo -e "  - $p_info Building..." && ! shoppebuild && echo -e "$p_error Failed to build $package." && exit 1
+		type -t whimpkg_build &>/dev/null && echo -e "  - $p_info Building..." && ! whimpkg_build && echo -e "$p_error Failed to build $package." && exit 1
 	else
 		# shellcheck disable=SC2154
 		[[ "$nobuild" == "true" ]] && [[ "$(sha512sum content.tar.gz)" == "$sha512sum" ]] && tar -xzf content.tar.gz
@@ -267,7 +268,7 @@ pkg_install() {
 		[[ -f "$file" ]] && echo "${file/$PWD\/content/}" >> "$pkginfo/$package/content"
 	done
 	shopt -u globstar
-	type -t shoppepostinstall &>/dev/null && echo -e "  - $p_info Running post-install..." && ! shoppepostinstall && echo -e "$p_warn Post-install script failed, but package's files were already copied! It is reccomended to reinstall the package, and if that doesn't help, contact the package's maintainer."
+	type -t whimpkg_postinstall &>/dev/null && echo -e "  - $p_info Running post-install..." && ! whimpkg_postinstall && echo -e "$p_warn Post-install script failed, but package's files were already copied! It is reccomended to reinstall the package, and if that doesn't help, contact the package's maintainer."
 	if grep "^$package " "$pkglist"; then
 		sed "/^$package\ /d" "$pkglist" > "${pkglist}-tmp"
 		mv "${pkglist}-tmp" "$pkglist"
@@ -302,7 +303,14 @@ availablePM="apt apt-get dnf yum yay yaourt pacaur pacman zypper apk eopkg"
 apt_query() {
 	# Workaround for buggy apt-cache behavior (apt-cache will return 0 even if the search has failed).
 	# Usage: apt_query <package>
-	apt-cache search --names-only ^"$1"$ &>"$tmpdir/err"
+	apt-cache search --names-only "$1" &>"$tmpdir/err"
+	if [[ -z "$(cat $tmpdir/err)" ]]; then return 1; else return 0; fi
+}
+
+yay_query() {
+	# Workaround for buggy yay behavior (yay will return 0 even if the search has failed).
+	# Usage: yay_query <package>
+	yay -Ss "$1" &>"$tmpdir/err"
 	if [[ -z "$(cat $tmpdir/err)" ]]; then return 1; else return 0; fi
 }
 
@@ -338,7 +346,7 @@ frontend_init() {
 			frontend_remove="$pm -R"
 			frontend_update="$pm -Sy"
 			frontend_upgrade="$pm -Syu"
-			frontend_query="$pm -Q"
+			frontend_query="yay_query"
 			frontend_listall="$pm -Q"
 			frontend_noconfirm="--noconfirm"
 			;;
@@ -347,7 +355,7 @@ frontend_init() {
 			frontend_remove="sudo $pm -R"
 			frontend_update="sudo $pm -Sy"
 			frontend_upgrade="sudo $pm -Syu"
-			frontend_query="sudo $pm -Q"
+			frontend_query="sudo $pm -Ss"
 			frontend_listall="$pm -Q"
 			frontend_noconfirm="--noconfirm"
 			;;
@@ -393,13 +401,13 @@ frontend_harvest() {
 ## Main functions
 
 # Install packages.
-shoppe_install() {
+whim_install() {
 	# Usage: installs packages specified in the $packages variable.
-	echo -e "$p_info Searching on shoppe repositories..."
+	echo -e "$p_info Searching on whim repositories..."
 	rm -rf "$tmpdir"
 	mkdir "$tmpdir"
 	[[ -z "$packages" ]] && echo -e "$p_error Nothing to install!" && exit 1
-	[[ ! -e "$configdir/repodata/1" ]] && echo -e "$p_warn No repositories fetched. Running update..." && shoppe_update
+	[[ ! -e "$configdir/repodata/1" ]] && echo -e "$p_warn No repositories fetched. Running update..." && whim_update
 #	totalrepos="$(find $configdir/repodata -mindepth 1 -type f | wc -l)" # total amount of repositories
 	tocheck="$packages"
 	# Until there's nothing to scan, get each package to scan and:
@@ -411,9 +419,10 @@ shoppe_install() {
 		for package in $tocheck; do
 			pkg_cleanup
 			success="0"
-			[[ "$pm" ]] && $frontend_query "$package" &>/dev/null && tofrontend="$tofrontend $package" && tocheck="${tocheck/$package/}" && continue
+			[[ "$pm" ]] && $frontend_query ^$package$ &>/dev/null && tofrontend="$tofrontend $package" && tocheck="${tocheck/$package/}" && continue
 			pkg_fetch
-			source "$tmpdir/$package/shoppepkg"
+			source "$tmpdir/$package/whimpkg"
+			[[ "$package" = *"-git" ]] && echo -e "$p_info $package will be built manually." && echo "nobuild='false'" >> "$tmpdir/$package/whimpkg" && nobuild=false
 			if [[ "$force" != "true" ]] && grep "^$package $pkgrel $pkgver" "$pkglist" &>/dev/null; then
 				grep "^$package " "$deplist" &>/dev/null && echo -e "$p_info Package $package was installed as a dependency. Setting as manually installed and skipping install..." && sed "/^$package\ /d" "$deplist" > "${deplist}-tmp" && mv "${deplist}-tmp" "$deplist"
 				echo -e "$p_info Package $package is already installed, skipping..."
@@ -442,16 +451,16 @@ shoppe_install() {
 	[[ "$tofrontend" ]] && echo -e "$p_info Installing packages from frontend..." && if $frontend_install $tofrontend; then echo -e "$p_info Updating installed package list..." && frontend_harvest; else echo -e "$p_error Failed to install." && exit 1; fi
 	for package in $toinstall; do
 		echo -e "$p_info Fetching prebuilt files..."
-		pkg_fetch_content
+		[[ "$packagemake" != "true" ]] && ! pkg_fetch_content && echo -e "$p_warn No prebuilt files found. This is most likely an issue with the package. If you're a package maintainer, use the +pm switch while building, and extract the resulting content.tar.gz from the package. If you don't want the package to have prebuilt files, add 'nobuild=false' to the whimpkg, or in case of building from a git repository rather than a static release, add -git to the end of your package name. whim will now attempt to install the package, however makedepends were not installed, so this is likely going to fail." && nobuild="false" && echo "nobuild='false'" >> "$tmpdir/$package/whimpkg"
 		echo -e "$p_info Installing $package..."
 		let currentpkg++
 		pkg_install
 		if [[ "$packagemake" == "true" ]]; then
 			tar -czf content.tar.gz content
-			echo "sha512sum=$(sha512sum content.tar.gz)" >> "$tmpdir/$package/shoppepkg"
+			echo "sha512sum=$(sha512sum content.tar.gz)" >> "$tmpdir/$package/whimpkg"
 			mkdir "$tmpdir/$package/topackage"
 			mv content.tar.gz "$tmpdir/$package/topackage"
-			mv "$tmpdir/$package/shoppepkg" "$tmpdir/$package/topackage"
+			mv "$tmpdir/$package/whimpkg" "$tmpdir/$package/topackage"
 			tar -czf "$HOME/$package.tar.gz" -C "$tmpdir/$package/topackage" .
 			echo -e "$p_debug Package created. Path: $HOME/$package.tar.gz"
 		fi
@@ -459,7 +468,7 @@ shoppe_install() {
 }
 
 # Remove packages.
-shoppe_remove() {
+whim_remove() {
 	[[ -z "$packages" ]] && echo -e "$p_error Nothing to remove!" && exit 1
 	tocheck="$packages"
 	until [[ -z "${tocheck// }" ]]; do
@@ -507,7 +516,7 @@ shoppe_remove() {
 }
 
 # Update repository info.
-shoppe_update() {
+whim_update() {
 	[[ "$pm" ]] && echo -e "$p_info Fetching installed package list from frontend..." && frontend_harvest
 	[[ "$pm" ]] && $frontend_update
 	rm -rf "$configdir/repodata"
@@ -531,8 +540,8 @@ shoppe_update() {
 }
 
 # Upgrade packages
-shoppe_upgrade() {
-	shoppe_update
+whim_upgrade() {
+	whim_update
 	rm -rf "$tmpdir"
 	mkdir "$tmpdir"
 	while IFS="" read -r line || [[ -n "$line" ]]; do
@@ -559,12 +568,12 @@ shoppe_upgrade() {
 }
 
 # shellcheck disable=SC2154,SC2086
-shoppe_info() {
+whim_info() {
 	[[ -z "$packages" ]] && echo -e "$p_error No packages to display!"
 	for package in $packages; do
 		forcebuild="true"
 		! pkg_fetch && echo -e "$p_error Package $package does not exist!" && exit 1
-		source "$tmpdir/$package/shoppepkg"
+		source "$tmpdir/$package/whimpkg"
 		echo -e "$p_info Information about $package:"
 		grep "^$package " "$pkglist" &>"$tmpdir/pkgline" && echo -e "[Installed] ($(cat $tmpdir/pkgline))"
 		echo -e "Version: $pkgver (package revision $pkgrel)"
@@ -576,60 +585,60 @@ shoppe_info() {
 	return 0
 }
 
-shoppe_listall() {
+whim_listall() {
 	cat "$pkglist"
 	return 0
 }
 
-shoppe_fetch() {
+whim_fetch() {
 	# Fetches package files for packages
-	# Usage: packages="<packages>" shoppe_fetch
-	# Using this in shoppe code is not recommended. Please use fetch <package> instead.
+	# Usage: packages="<packages>" whim_fetch
+	# Using this in whim code is not recommended. Please use fetch <package> instead.
 	for package in $packages; do pkg_fetch "$package"; done
 }
 
 ## Option parsing
-[[ -z $1 ]] && echo -e "$p_error Nothing to do! Use 'shoppe help' for information about available commands." && exit 1
+[[ -z $1 ]] && echo -e "$p_error Nothing to do! Use 'whim help' for information about available commands." && exit 1
 case $1 in
-		'install') command="shoppe_install";;
-		'remove') command="shoppe_remove";;
-		'update') command="shoppe_update";;
-		'upgrade') command="shoppe_upgrade";;
-		'fetch') command="shoppe_fetch";;
-		'info') command="shoppe_info";;
-		'listall') command="shoppe_listall";;
-		'help'|'--help'|'-h'|'+help'|'+h') shoppe_help;;
-		'--version'|'-v'|'version') echo "shoppe $version"; exit 0;;
-		*) echo -e "$p_error Invalid command: $1. Use 'shoppe help' for information about available commands."; exit 1;;
+		'install') command="whim_install";;
+		'remove') command="whim_remove";;
+		'update') command="whim_update";;
+		'upgrade') command="whim_upgrade";;
+		'fetch') command="whim_fetch";;
+		'info') command="whim_info";;
+		'listall') command="whim_listall";;
+		'help'|'--help'|'-h'|'+help'|'+h') whim_help;;
+		'--version'|'-v'|'version') echo "whim $version"; exit 0;;
+		*) echo -e "$p_error Invalid command: $1. Use 'whim help' for information about available commands."; exit 1;;
 esac
 nocmd="${*/$1/}"
 for parse in $nocmd; do
 	case $parse in
 		-*) switches="$switches $parse";;
-		+*) shoppeswitches="$shoppeswitches $parse";;
+		+*) whimswitches="$whimswitches $parse";;
 		*) packages="$packages $parse";;
 	esac
 done
 command=$(echo "$command" | sed -e 's/^[ \t]*//')
 packages=$(echo "$packages" | sed -e 's/^[ \t]*//')
 switches=$(echo "$switches" | sed -e 's/^[ \t]*//')
-for switch in $shoppeswitches; do
+for switch in $whimswitches; do
 	case $switch in
 		"+skipfrontend"|"+sf") skipfrontend="true";;
 		"+noconfirm"|"+nc") noconfirm="true";;
 		"+forcebuild"|"+fb") nobuild="false"; forcebuild="true";;
-		"+packagemake"|"+pm") packagemake="true"; nobuild="false";;
+		"+packagemake"|"+pm") packagemake="true"; nobuild="false"; forcebuild="true";;
 		"+f"|"+force") force="true";;
-		'+h'|'+help') shoppe_help;;
-		'+version'|'+v') echo "shoppe $version"; exit 0;;
+		'+h'|'+help') whim_help;;
+		'+version'|'+v') echo "whim $version"; exit 0;;
 	esac
 done
 for switch in $switches; do
 	case $switch in
 		--noconfirm|-y) noconfirm="true";;
-		--help|-h) shoppe_help;;
+		--help|-h) whim_help;;
 		--force) force="true";;
-		'--version'|'-v') echo "shoppe $version"; exit 0;;
+		'--version'|'-v') echo "whim $version"; exit 0;;
 	esac
 done
 [[ "$skipfrontend" != "true" ]] && frontend_init

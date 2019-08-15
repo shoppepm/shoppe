@@ -10,7 +10,7 @@ This file allows the user to overwrite some paths for other configuration files.
 
 ### $configdir/repositories
 
-This file contains paths to each repository that shoppe should use.
+This file contains paths to each repository that whim! should use.
 
 *See: [Repositories](repositories.md)*
 
