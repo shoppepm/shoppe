@@ -1,4 +1,4 @@
-# whim! [![Build Status](https://travis-ci.org/shoppepm/shoppe.svg?branch=rewrite)](https://travis-ci.org/shoppepm/shoppe)
+# whim! [![Build Status](https://travis-ci.org/whim-pm/whim.svg?branch=rewrite)](https://travis-ci.org/whim-pm/whim)
 
 A portable package manager that integrates with the distro's package manager.
 
