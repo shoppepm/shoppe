@@ -297,7 +297,7 @@ pkg_remove() {
 ## Frontend
 
 # Supported package managers:
-availablePM="apt apt-get dnf yum yay yaourt pacaur pacman zypper apk eopkg"
+availablePM="pkg apt apt-get dnf yum yay yaourt pacaur pacman zypper apk eopkg"
 
 # shellcheck disable=SC2086
 apt_query() {
@@ -323,6 +323,15 @@ frontend_init() {
 		command -v "$pm" &>/dev/null && break
 	done
 	case $pm in
+		pkg) # pkg (Termux)
+			frontend_install="$pm install"
+			frontend_remove="$pm remove"
+			frontend_update="$pm update"
+			frontend_upgrade="$pm upgrade"
+			frontend_query="apt_query"
+			frontend_listall="apt-cache pkgnames" # TODO: This only shows package names but not versions. Fix that, eventually.
+			frontend_noconfirm="--yes --force-yes"
+			;;
 		apt|apt-get) # apt/apt-get (Debian-based)
 			frontend_install="sudo $pm install"
 			frontend_remove="sudo $pm remove"
