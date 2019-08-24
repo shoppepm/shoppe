@@ -4,7 +4,7 @@
 This article needs to be rewritten more clearly.
 ```
 
-The frontend is a part of whim! that allows it to interact with the operating system's package manager.
+The frontend is a part of shoppe that allows it to interact with the operating system's package manager.
 
 ## Main commands
 

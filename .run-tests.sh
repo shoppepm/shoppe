@@ -5,25 +5,25 @@
 
 set -ev
 
-echo "$(echo '#!/bin/bash -x' && grep -v '^\#\!\/' whim)" > whim-testing
-mv whim-testing whim
-chmod +x whim
+echo "$(echo '#!/bin/bash -x' && grep -v '^\#\!\/' shoppe)" > shoppe-testing
+mv shoppe-testing shoppe
+chmod +x shoppe
 
-! ./whim
-./whim help
+! ./shoppe
+./shoppe help
 
-./whim install boredbutton +nc
+./shoppe install boredbutton +nc
 
 [[ -e "/usr/bin/bored" ]]
 
-ls ~/.config/whim
-ls ~/.config/whim/*
+ls ~/.config/shoppe
+ls ~/.config/shoppe/*
 
-./whim remove boredbutton +nc
+./shoppe remove boredbutton +nc
 ! [[ -e "/usr/bin/bored" ]]
 
-./whim update +nc
-./whim upgrade +nc
-./whim info boredbutton
-! ./whim info pkgthatdoesnotexist
-./whim listall
+./shoppe update +nc
+./shoppe upgrade +nc
+./shoppe info boredbutton
+! ./shoppe info pkgthatdoesnotexist
+./shoppe listall
