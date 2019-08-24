@@ -663,7 +663,7 @@ for switch in $switches; do
 		'--version'|'-v') echo "shoppe $version"; exit 0;;
 	esac
 done
-[[ "$skipfrontend" != "true" ]] && frontend_init
 auth_init
+[[ "$skipfrontend" != "true" ]] && frontend_init
 $command
 exit 0
