@@ -664,6 +664,6 @@ for switch in $switches; do
 	esac
 done
 [[ "$skipfrontend" != "true" ]] && frontend_init
-
+auth_init
 $command
 exit 0
