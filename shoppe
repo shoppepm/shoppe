@@ -247,7 +247,7 @@ pkg_cleanup() {
 	# This function cleans up after a shoppe package.
 	# Use this when you're running a loop that sources multiple shoppepkgs.
 	# Usage: pkg_cleanup
-	unset pkgname pkgdesc pkgarch pkgver revision license website depends optional makedepends conflicts archdependent source sourcetype tag
+	unset pkgname pkgdesc pkgarch pkgver revision license url depends optional makedepends conflicts archdependent source sourcetype tag
 	unset -f shoppepkg_preinstall shoppepkg_build shoppepkg_postinstall
 	unset nobuild
 	[[ "$forcebuild" == "true" ]] && nobuild="false"
