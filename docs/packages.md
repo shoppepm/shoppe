@@ -1,6 +1,6 @@
 # Package
 
-Each shoppe package has two core files: shoppepkg, which contains the information about the package, and content-ARCHITECTURE.tar.gz, which contains the files for the package for a select architecture. If content.tar.gz is not present, the package will be built manually.
+Each shoppe package has two core files: shoppepkg, which contains the information about the package, and content.tar.gz, which contains the files for the package. If content.tar.gz is not present, the package will be built manually.
 
 ## Example shoppe package
 
