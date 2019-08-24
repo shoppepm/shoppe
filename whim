@@ -15,7 +15,6 @@ version="1.0"
 
 ## TODO
 # Implement optional dependencies
-# Add more authentication methods for commands that use sudo
 # Clear up documentation
 
 ### BEGIN CODE ###
@@ -32,9 +31,6 @@ p_info="\033[34m::\033[0m"
 p_warn="\033[33m!!\033[0m"
 p_error="\033[31m!!\033[0m"
 p_debug="\033[35m~!\033[0m"
-
-## Warn when running as root.
-[[ "$EUID" -eq 0 ]] && echo -e "$p_warn Please refrain from using whim! as root. Things will most likely break."
 
 ## Configuration. This is overwritten by the main config file ($configdir/config)
 configdir="$HOME/.config/whim"
@@ -119,6 +115,23 @@ exit 0
 }
 
 ## Helper functions
+
+sudosu() {
+	# Run commands with su root -c 'commands'
+	su root -c "$*"
+}
+
+auth_init() {
+	# This function is used to figure out what authentication methods are available.
+	# This is used to replace sudo, as it is not present on all systems and is not required when the user is already root.
+	# Usage: auth_init
+	# Using authentication: $suauth commands
+	[[ "$EUID" -eq 0 ]] && return 0 # User is running as root, no authentication is required.
+	command -v "sudo" &>/dev/null && suauth="sudo" && return 0 # sudo is available
+	command -v "su" &>/dev/null && suauth="sudosu" && return 0
+	echo -e "$p_error No authentication methods found! If you have a sudo alternative, add it to the auth_init command and make a pull request." && exit 1
+}
+
 yesno() {
 	case $1 in
 		y|Y) yesnochoice="[Y/n]";;
@@ -257,7 +270,7 @@ pkg_install() {
 		# shellcheck disable=SC2154
 		[[ "$nobuild" == "true" ]] && [[ "$(sha512sum content.tar.gz)" == "$sha512sum" ]] && tar -xzf content.tar.gz
 	fi
-	! sudo cp -rf content/* / && echo -e "$p_error Failed to install $package." && exit 1
+	! $suauth cp -rf content/* / && echo -e "$p_error Failed to install $package." && exit 1
 	[[ -e "$pkginfo/$package" ]] && rm -rf "${pkginfo:?}/${package:?}"
 	mkdir "$pkginfo/$package"
 	shopt -s globstar
@@ -288,7 +301,7 @@ pkg_remove() {
 	# This is an internal function used to remove packages.
 	# Usage: package="packagetoremove" pkg_remove
 	pkg_cleanup
-	! xargs sudo rm -f < "$pkginfo/$package/content" && echo -e "$p_error Failed to remove $package." && exit 1
+	! xargs $suauth rm -f < "$pkginfo/$package/content" && echo -e "$p_error Failed to remove $package." && exit 1
 	rm -rf "${pkginfo:?}/${package:?}"
 	sed "/^$package\ /d" "$pkglist" > "${pkglist}-tmp"
 	mv "${pkglist}-tmp" "$pkglist"
@@ -333,19 +346,19 @@ frontend_init() {
 			frontend_noconfirm="--yes --force-yes"
 			;;
 		apt|apt-get) # apt/apt-get (Debian-based)
-			frontend_install="sudo $pm install"
-			frontend_remove="sudo $pm remove"
-			frontend_update="sudo $pm update"
-			frontend_upgrade="sudo $pm upgrade"
+			frontend_install="$suauth $pm install"
+			frontend_remove="$suauth $pm remove"
+			frontend_update="$suauth $pm update"
+			frontend_upgrade="$suauth $pm upgrade"
 			frontend_query="apt_query"
 			frontend_listall="apt-cache pkgnames" # TODO: This only shows package names but not versions. Fix that, eventually.
 			frontend_noconfirm="--yes --force-yes"
 			;;
 		dnf|yum) # dnf/yum (Fedora, CentOS, Red Hat and related)
-			frontend_install="sudo $pm install"
-			frontend_remove="sudo $pm remove"
-			frontend_update="sudo $pm update"
-			frontend_upgrade="sudo $pm upgrade"
+			frontend_install="$suauth $pm install"
+			frontend_remove="$suauth $pm remove"
+			frontend_update="$suauth $pm update"
+			frontend_upgrade="$suauth $pm upgrade"
 			frontend_query="$pm search"
 			frontend_listall="rpm -qa | sed -i 's/\:/\ 0\ /g'"
 			frontend_noconfirm="-y"
@@ -360,38 +373,38 @@ frontend_init() {
 			frontend_noconfirm="--noconfirm"
 			;;
 		pacman) # pacman (Arch Linux)
-			frontend_install="sudo $pm -Sy --needed"
-			frontend_remove="sudo $pm -R"
-			frontend_update="sudo $pm -Sy"
-			frontend_upgrade="sudo $pm -Syu"
-			frontend_query="sudo $pm -Ss"
+			frontend_install="$suauth $pm -Sy --needed"
+			frontend_remove="$suauth $pm -R"
+			frontend_update="$suauth $pm -Sy"
+			frontend_upgrade="$suauth $pm -Syu"
+			frontend_query="$suauth $pm -Ss"
 			frontend_listall="$pm -Q"
 			frontend_noconfirm="--noconfirm"
 			;;
 		zypper) # zypper (SLES, openSUSE-based)
-			frontend_install="sudo $pm install"
-			frontend_remove="sudo $pm remove"
-			frontend_update="sudo dnf clean expire-cache && sudo dnf check-update"
-			frontend_upgrade="sudo $pm update"
+			frontend_install="$suauth $pm install"
+			frontend_remove="$suauth $pm remove"
+			frontend_update="$suauth dnf clean expire-cache && $suauth dnf check-update"
+			frontend_upgrade="$suauth $pm update"
 			frontend_query="$pm info"
 			frontend_listall="rpm -qa | sed -i 's/\:/\ 0\ /g'"
 			frontend_noconfirm="--non-interactive"
 			;;
 		apk) # apk (Alpine Linux, postmarketOS)
-			frontend_install="sudo $pm add"
-			frontend_remove="sudo $pm del"
-			frontend_update="sudo $pm update"
-			frontend_upgrade="sudo $pm upgrade"
+			frontend_install="$suauth $pm add"
+			frontend_remove="$suauth $pm del"
+			frontend_update="$suauth $pm update"
+			frontend_upgrade="$suauth $pm upgrade"
 			frontend_query="$pm info"
 			frontend_listall="$pm info" # TODO: Fancy sed command that moves the version to the end and revision to the middle (use apk info -v for that)
 			;;
 		eopkg) # eopkg (Solus)
-			frontend_install="sudo $pm install"
-			frontend_remove="sudo $pm remove"
-			frontend_update="sudo $pm update-repo"
-			frontend_upgrade="sudo $pm upgrade"
-			frontend_query="sudo $pm info"
-			frontend_listall="sudo $pm list-installed"
+			frontend_install="$suauth $pm install"
+			frontend_remove="$suauth $pm remove"
+			frontend_update="$suauth $pm update-repo"
+			frontend_upgrade="$suauth $pm upgrade"
+			frontend_query="$suauth $pm info"
+			frontend_listall="$suauth $pm list-installed"
 			;;
 	esac
 	if [[ "$noconfirm" == "true" ]] && [[ "$frontend_noconfirm" ]]; then
