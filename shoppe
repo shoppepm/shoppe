@@ -221,11 +221,11 @@ pkg_fetch() {
 }
 
 pkg_fetch_content() {
-	# This is a function used to fetch the content.tar.gz of a package.
+	# This is a function used to fetch the content-$arch.tar.gz of a package.
 	# Before this function, pkg_fetch pulled the content as well.
 	# Considering the usual usage of pkg_fetch (fetch package info
 	# before progressing with the actual install process) downloading
-	# the content.tar.gz before the user confirmed the installation
+	# the content-$arch.tar.gz before the user confirmed the installation
 	# process is kind of a waste of bandwitdh and time.
 	# Thus, the function was split.
 	# Usage: package="packagetofetch" pkg_fetch_content
@@ -234,8 +234,8 @@ pkg_fetch_content() {
 	[[ -f "$package" ]] && return 0 # already unpacked in pkg_fetch
 	success="0"
 	case $repotofetch in
-		"local: "*) [[ -e "${repotofetch/local\:\ /}/$package/content.tar.gz" ]] && cp "${repotofetch/local\:\ /}/$package/content.tar.gz" "$tmpdir/$package/";;
-		"http: "*)  ! wget -q "${repotofetch/http\:\ /}/$package/content.tar.gz" -O "$tmpdir/$package/content.tar.gz" && echo -e "$p_warn Prebuilt files not found, defaulting to build mode..." && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg";;
+		"local: "*) [[ -e "${repotofetch/local\:\ /}/$package/content-$arch.tar.gz" ]] && cp "${repotofetch/local\:\ /}/$package/content-$arch.tar.gz" "$tmpdir/$package/";;
+		"http: "*)  ! wget -q "${repotofetch/http\:\ /}/$package/content-$arch.tar.gz" -O "$tmpdir/$package/content-$arch.tar.gz" && echo -e "$p_warn Prebuilt files not found, defaulting to build mode..." && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg";;
 		*) echo -e "$p_debug Repo data file for id $repo does not contain repository path! Have you been tampering with the file? Run shoppe update to fix this.";;
 	esac
 	if [[ "$success" == "1" ]]; then return 0; else return 1; fi
@@ -268,7 +268,7 @@ pkg_install() {
 		type -t shoppepkg_build &>/dev/null && echo -e "  - $p_info Building..." && ! shoppepkg_build && echo -e "$p_error Failed to build $package." && exit 1
 	else
 		# shellcheck disable=SC2154
-		[[ "$nobuild" == "true" ]] && [[ "$(sha512sum content.tar.gz)" == "$sha512sum" ]] && tar -xzf content.tar.gz
+		[[ "$nobuild" == "true" ]] && [[ "$(sha512sum content-$arch.tar.gz)" == "$sha512sum" ]] && tar -xzf content-$arch.tar.gz
 	fi
 	! $suauth cp -rf content/* / && echo -e "$p_error Failed to install $package." && exit 1
 	[[ -e "$pkginfo/$package" ]] && rm -rf "${pkginfo:?}/${package:?}"
@@ -473,15 +473,15 @@ shoppe_install() {
 	[[ "$tofrontend" ]] && echo -e "$p_info Installing packages from frontend..." && if $frontend_install $tofrontend; then echo -e "$p_info Updating installed package list..." && frontend_harvest; else echo -e "$p_error Failed to install." && exit 1; fi
 	for package in $toinstall; do
 		echo -e "$p_info Fetching prebuilt files..."
-		[[ "$packagemake" != "true" ]] && ! pkg_fetch_content && echo -e "$p_warn No prebuilt files found. This is most likely an issue with the package. If you're a package maintainer, use the +pm switch while building, and extract the resulting content.tar.gz from the package. If you don't want the package to have prebuilt files, add 'nobuild=false' to the shoppepkg, or in case of building from a git repository rather than a static release, add -git to the end of your package name. shoppe will now attempt to install the package, however makedepends were not installed, so this is likely going to fail." && nobuild="false" && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg"
+		[[ "$packagemake" != "true" ]] && ! pkg_fetch_content && echo -e "$p_warn No prebuilt files found. This is most likely an issue with the package. If you're a package maintainer, use the +pm switch while building, and extract the resulting content-$arch.tar.gz from the package. If you don't want the package to have prebuilt files, add 'nobuild=false' to the shoppepkg, or in case of building from a git repository rather than a static release, add -git to the end of your package name. shoppe will now attempt to install the package, however makedepends were not installed, so this is likely going to fail." && nobuild="false" && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg"
 		echo -e "$p_info Installing $package..."
 		let currentpkg++
 		pkg_install
 		if [[ "$packagemake" == "true" ]]; then
-			tar -czf content.tar.gz content
-			echo "sha512sum=$(sha512sum content.tar.gz)" >> "$tmpdir/$package/shoppepkg"
+			tar -czf content-$arch.tar.gz content
+			echo "sha512sum=$(sha512sum content-$arch.tar.gz)" >> "$tmpdir/$package/shoppepkg"
 			mkdir "$tmpdir/$package/topackage"
-			mv content.tar.gz "$tmpdir/$package/topackage"
+			mv content-$arch.tar.gz "$tmpdir/$package/topackage"
 			mv "$tmpdir/$package/shoppepkg" "$tmpdir/$package/topackage"
 			tar -czf "$HOME/$package.tar.gz" -C "$tmpdir/$package/topackage" .
 			echo -e "$p_debug Package created. Path: $HOME/$package.tar.gz"
