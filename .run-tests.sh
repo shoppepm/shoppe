@@ -36,10 +36,10 @@ ls ~/.config/shoppe/*
 ! ./shoppe info pkgthatdoesnotexist
 ./shoppe listall
 
-if [[ "$(git branch | grep \* | cut -d ' ' -f2)" == "develop" ]]; then
-	git checkout master-candidate
-	git merge develop
-	echo "$(echo '# shoppe [![Build Status](https://travis-ci.org/shoppepm/shoppe.svg?branch=master-candidate)](https://travis-ci.org/shoppepm/shoppe)' && grep -v '^\#\ shoppe/' README.md)" > README.md.tmp
-	mv README.md.tmp README.md
-	git push --set-upstream origin master-candidate
-fi
+#if [[ "$(git branch | grep \* | cut -d ' ' -f2)" == "develop" ]]; then
+#	git checkout master-candidate
+#	git merge develop
+#	echo "$(echo '# shoppe [![Build Status](https://travis-ci.org/shoppepm/shoppe.svg?branch=master-candidate)](https://travis-ci.org/shoppepm/shoppe)' && grep -v '^\#\ shoppe/' README.md)" > README.md.tmp
+#	mv README.md.tmp README.md
+#	git push --set-upstream origin master-candidate
+#fi
