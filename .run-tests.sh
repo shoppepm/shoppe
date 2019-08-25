@@ -21,7 +21,7 @@ ls ~/.config/shoppe/*
 ./shoppe remove boredbutton +nc
 ! [[ -e "/usr/bin/bored" ]]
 
-./shoppe install boredbutton +pm
+./shoppe install boredbutton +pm +nc
 [[ -e "/usr/bin/bored" ]]
 
 ls ~/.config/shoppe
