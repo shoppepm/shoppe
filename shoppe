@@ -47,7 +47,7 @@ force="false"
 [[ ! -e "$configdir" ]] && mkdir -p "$configdir"
 [[ ! -e "$pkginfo" ]] && mkdir "$pkginfo"
 [[ ! -e "$configdir/repodata" ]] && mkdir "$configdir/repodata"
-[[ ! -e "$repolist" ]] && echo "http: https://raw.githubusercontent.com/shoppepm/shoppe-repo/master" > "$repolist"
+[[ ! -e "$repolist" ]] && echo "http: https://raw.githubusercontent.com/shoppepm/shoppe-repos/master" > "$repolist"
 [[ ! -e "$pkglist.frontend" ]] && touch "$pkglist.frontend"
 [[ ! -e "$pkglist" ]] && touch "$pkglist"
 
