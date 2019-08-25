@@ -13,7 +13,15 @@ chmod +x shoppe
 ./shoppe help
 
 ./shoppe install boredbutton +nc
+[[ -e "/usr/bin/bored" ]]
 
+ls ~/.config/shoppe
+ls ~/.config/shoppe/*
+
+./shoppe remove boredbutton +nc
+! [[ -e "/usr/bin/bored" ]]
+
+./shoppe install boredbutton +pm
 [[ -e "/usr/bin/bored" ]]
 
 ls ~/.config/shoppe
@@ -27,3 +35,5 @@ ls ~/.config/shoppe/*
 ./shoppe info boredbutton
 ! ./shoppe info pkgthatdoesnotexist
 ./shoppe listall
+
+[[ "$(git branch | grep \* | cut -d ' ' -f2)" == "develop" ]] && git checkout master-candidate && git merge develop && git push --set-upstream origin master-candidate
