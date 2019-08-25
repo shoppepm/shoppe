@@ -1,4 +1,4 @@
-# shoppe [![Build Status](https://travis-ci.org/shoppepm/shoppe.svg?branch=develop)](https://travis-ci.org/shoppepm/shoppe)
+# shoppe [![Build Status](https://travis-ci.org/shoppepm/shoppe.svg?branch=master-candidate)](https://travis-ci.org/shoppepm/shoppe)
 
 A portable package manager that integrates with the distro's package manager.
 
