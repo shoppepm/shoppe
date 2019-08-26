@@ -271,7 +271,28 @@ pkg_install() {
 	else
 		contentchecksumvar="content_${arch}_checksum"
 		# shellcheck disable=SC2154
-		[[ "$nobuild" == "true" ]] && [[ "$(sha512sum content-$arch.tar.gz)" == "${!contentchecksumvar}" ]] && tar -xzf content-$arch.tar.gz -C content && echo -e "$p_info Successfully extracted package."
+		if [[ "$nobuild" == "true" ]] && [[ "$(sha512sum content-$arch.tar.gz)" == "${!contentchecksumvar}" ]]; then
+			if tar -xzf content-$arch.tar.gz -C content; then
+				echo -e "$p_info Successfully extracted package."
+			else
+				echo -e "$p_error Failed to extract $package."
+				exit 1
+			fi
+		else
+			echo -e "$p_warn Package checksum (${!contentchecksumvar}) does not match the content tarball's checksum ($(sha512sum content-$arch.tar.gz))."
+			yesnotxt="Install anyways (not reccomended)?" yesno n
+			if [[ "$choice" == "yes" ]]; then
+				if tar -xzf content-$arch.tar.gz -C content; then
+					echo -e "$p_info Successfully extracted package."
+				else
+					echo -e "$p_error Failed to extract $package."
+					exit 1
+				fi
+			else
+				echo -e "$p_error Failed to install $package."
+				exit 1
+			fi
+		fi
 	fi
 	! cd content && echo -e "$p_error Failed to install $package." && exit 1
 	! $suauth cp -rf . / && echo -e "$p_error Failed to install $package." && exit 1
