@@ -511,7 +511,7 @@ shoppe_install() {
 		pkg_install
 		if [[ "$packagemake" == "true" ]]; then
 			tar -czf content-$arch.tar.gz content
-			echo "content_${arch}_checksum=$(sha512sum content-$arch.tar.gz)" >> "$tmpdir/$package/shoppepkg"
+			echo "content_${arch}_checksum='$(sha512sum content-$arch.tar.gz)'" >> "$tmpdir/$package/shoppepkg"
 			mkdir "$tmpdir/$package/topackage"
 			mv content-$arch.tar.gz "$tmpdir/$package/topackage"
 			mv "$tmpdir/$package/shoppepkg" "$tmpdir/$package/topackage"
