@@ -164,10 +164,10 @@ get_source() {
     case $sourcetype in
         git) git clone "$source" "source";;
         git-tag) git clone --branch "$tag" "$source" "source";;
-        tar) wget "$source"; tar xvf ./* -C source;;
-        targz) wget "$source"; tar xzf ./* -C source;;
+        tar) wget "$source"; mkdir source; tar xvf ./* -C source;;
+        targz) wget "$source"; mkdir source; tar xzf ./* -C source;;
         #gz) wget "$source"; gunzip ./*;;
-        tarxz) wget "$source"; tar xJf ./* -C source;;
+        tarxz) wget "$source"; mkdir source; tar xJf ./* -C source;;
 		zip) wget "$source"; mkdir source; unzip ./* -d source;;
     esac
 }
@@ -271,8 +271,9 @@ pkg_install() {
 	else
 		contentchecksumvar="content_${arch}_checksum"
 		# shellcheck disable=SC2154
+		mkdir "$tmpdir/$package/content"
 		if [[ "$(sha512sum content-$arch.tar.gz)" == "${!contentchecksumvar}" ]]; then
-			if tar -xzf content-$arch.tar.gz -C content; then
+			if tar -xzf content-$arch.tar.gz -C "$tmpdir/$package/content"; then
 				echo -e "$p_info Successfully extracted package."
 			else
 				echo -e "$p_error Failed to extract $package."
@@ -282,7 +283,7 @@ pkg_install() {
 			echo -e "$p_warn Package checksum (${!contentchecksumvar}) does not match the content tarball's checksum ($(sha512sum content-$arch.tar.gz))."
 			yesnotxt="Install anyways (not reccomended)?" yesno n
 			if [[ "$choice" == "yes" ]]; then
-				if tar -xzf content-$arch.tar.gz -C content; then
+				if tar -xzf content-$arch.tar.gz -C "$tmpdir/$package/content"; then
 					echo -e "$p_info Successfully extracted package."
 				else
 					echo -e "$p_error Failed to extract $package."
