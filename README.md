@@ -5,7 +5,7 @@ A portable package manager that integrates with the distro's package manager.
 ## Getting started
 
 ```bash
-wget https://raw.githubusercontent.com/shoppe-pm/shoppe/master/shoppe
+wget https://raw.githubusercontent.com/shoppepm/shoppe/master/shoppe
 chmod +x shoppe
 ./shoppe install shoppe
 ```
