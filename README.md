@@ -1,11 +1,11 @@
-# shoppe [![Build Status](https://travis-ci.org/shoppepm/shoppe.svg?branch=develop)](https://travis-ci.org/shoppepm/shoppe)
+# shoppe [![Build Status](https://travis-ci.org/shoppepm/shoppe.svg?branch=master)](https://travis-ci.org/shoppepm/shoppe)
 
 A portable package manager that integrates with the distro's package manager.
 
 ## Getting started
 
 ```bash
-wget https://raw.githubusercontent.com/shoppepm/shoppe/master/shoppe
+wget https://raw.githubusercontent.com/shoppe-pm/shoppe/master/shoppe
 chmod +x shoppe
 ./shoppe install shoppe
 ```
