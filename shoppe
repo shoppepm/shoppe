@@ -271,7 +271,7 @@ pkg_install() {
 	else
 		contentchecksumvar="content_${arch}_checksum"
 		# shellcheck disable=SC2154
-		if [[ "$nobuild" == "true" ]] && [[ "$(sha512sum content-$arch.tar.gz)" == "${!contentchecksumvar}" ]]; then
+		if [[ "$(sha512sum content-$arch.tar.gz)" == "${!contentchecksumvar}" ]]; then
 			if tar -xzf content-$arch.tar.gz -C content; then
 				echo -e "$p_info Successfully extracted package."
 			else
@@ -308,14 +308,14 @@ pkg_install() {
 	done
 	shopt -u globstar
 	type -t shoppepkg_postinstall &>/dev/null && echo -e "  - $p_info Running post-install..." && ! shoppepkg_postinstall && echo -e "$p_warn Post-install script failed, but package's files were already copied! It is reccomended to reinstall the package, and if that doesn't help, contact the package's maintainer."
-	if grep "^$package " "$pkglist"; then
+	if grep "^$package " "$pkglist" &>/dev/null; then
 		sed "/^$package\ /d" "$pkglist" > "${pkglist}-tmp"
 		mv "${pkglist}-tmp" "$pkglist"
 	fi
 	# shellcheck disable=SC2154
 	echo "$package $pkgrel $pkgver" >> "$pkglist"
 	# shellcheck disable=SC2154
-	if grep "^$package " "$deplist"; then
+	if grep "^$package " "$deplist" &>/dev/null; then
 		sed "/^$package\ /d" "$deplist" > "${deplist}-tmp"
 		mv "${deplist}-tmp" "$deplist"
 	fi
@@ -469,8 +469,8 @@ shoppe_install() {
 			success="0"
 			[[ "$pm" ]] && $frontend_query ^$package$ &>/dev/null && tofrontend="$tofrontend $package" && tocheck="${tocheck/$package/}" && continue
 			pkg_fetch
-			source "$tmpdir/$package/shoppepkg"
-			[[ "$package" = *"-git" ]] && echo -e "$p_info $package will be built manually." && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg" && nobuild=false
+			source "$tmpdir/$package/shoppepkg" &>/dev/null
+			[[ "$package" == *"-git" ]] && [[ "$forcebuild" != "true" ]] && [[ "$nobuild" != "true" ]] && echo -e "$p_info $package will be built manually." && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg" && nobuild=false
 			#if [[ "$force" != "true" ]] && grep "^$package $pkgrel $pkgver" "$pkglist" &>/dev/null; then; fi
 			if [[ "$force" != "true" ]] && [[ "$current_uptodate" == "true" ]]; then
 				if grep "^$package " "$deplist" &>/dev/null; then
@@ -538,7 +538,7 @@ shoppe_remove() {
 			# - is a dependency to another package
 			# it will be skipped, unless the user provides the --force switch.
 			if [[ "$force" != "true" ]]; then
-				grep "^$package " "$deplist" && tocheck="${tocheck/$package/}" && continue
+				grep "^$package " "$deplist" &>/dev/null && tocheck="${tocheck/$package/}" && continue
 				for dir in "$pkginfo"/*; do
 					if [[ "$(basename $(dirname $dir))" != "$package" ]] && [[ -e "$dir/dependencies" ]] && grep "^$package " "$dir/dependencies" &>/dev/null; then
 						tocheck="${tocheck/$package/}"
@@ -549,7 +549,7 @@ shoppe_remove() {
 				[[ "$cont" == "true" ]] && continue
 			fi
 			grep "^$package " "$deplist" &>/dev/null && tocheck="${tocheck/$package/}" && continue
-			grep "^$package " "$pkglist.frontend" && tofrontend="$tofrontend $package" && currentfrontend="true"
+			grep "^$package " "$pkglist.frontend" &>/dev/null && tofrontend="$tofrontend $package" && currentfrontend="true"
 			tocheck="${tocheck/$package/}"
 			# shellcheck disable=SC2086
 			[[ "$currentfrontend" != "true" ]] && tocheck="$tocheck $(cat $pkginfo/$package/dependencies | tr '\n' ' ')" && toremove="$package"
