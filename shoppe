@@ -232,7 +232,7 @@ pkg_fetch_content() {
 	# Usage: package="packagetofetch" pkg_fetch_content
 	# Usage example: use in for loops
 	[[ "$forcebuild" == "true" ]] && return 0
-	[[ -f "$package" ]] && return 0 # already unpacked in pkg_fetch
+	[[ -e "$tmpdir/$package/content-$arch.tar.gz" ]] && return 0 # already unpacked in pkg_fetch
 	success="0"
 	case $repotofetch in
 		"local: "*) [[ -e "${repotofetch/local\:\ /}/$package/content-$arch.tar.gz" ]] && cp "${repotofetch/local\:\ /}/$package/content-$arch.tar.gz" "$tmpdir/$package/" && success='1';;
