@@ -164,10 +164,10 @@ get_source() {
     case $sourcetype in
         git) git clone "$source" "source";;
         git-tag) git clone --branch "$tag" "$source" "source";;
-        tar) wget "$source"; mkdir source; tar xvf ./* -C source;;
-        targz) wget "$source"; mkdir source; tar xzf ./* -C source;;
+        tar) wget "$source"; tar xvf ./* -C source;;
+        targz) wget "$source"; tar xzf ./* -C source;;
         #gz) wget "$source"; gunzip ./*;;
-        tarxz) wget "$source"; mkdir source; tar xJf ./* -C source;;
+        tarxz) wget "$source"; tar xJf ./* -C source;;
 		zip) wget "$source"; mkdir source; unzip ./* -d source;;
     esac
 }
@@ -232,7 +232,7 @@ pkg_fetch_content() {
 	# Usage: package="packagetofetch" pkg_fetch_content
 	# Usage example: use in for loops
 	[[ "$forcebuild" == "true" ]] && return 0
-	[[ -e "$tmpdir/$package/content-$arch.tar.gz" ]] && return 0 # already unpacked in pkg_fetch
+	[[ -f "$package" ]] && return 0 # already unpacked in pkg_fetch
 	success="0"
 	case $repotofetch in
 		"local: "*) [[ -e "${repotofetch/local\:\ /}/$package/content-$arch.tar.gz" ]] && cp "${repotofetch/local\:\ /}/$package/content-$arch.tar.gz" "$tmpdir/$package/" && success='1';;
@@ -271,29 +271,7 @@ pkg_install() {
 	else
 		contentchecksumvar="content_${arch}_checksum"
 		# shellcheck disable=SC2154
-		mkdir "$tmpdir/$package/content"
-		if [[ "$(sha512sum content-$arch.tar.gz)" == "${!contentchecksumvar}" ]]; then
-			if tar -xzf content-$arch.tar.gz -C "$tmpdir/$package/content"; then
-				echo -e "$p_info Successfully extracted package."
-			else
-				echo -e "$p_error Failed to extract $package."
-				exit 1
-			fi
-		else
-			echo -e "$p_warn Package checksum (${!contentchecksumvar}) does not match the content tarball's checksum ($(sha512sum content-$arch.tar.gz))."
-			yesnotxt="Install anyways (not reccomended)?" yesno n
-			if [[ "$choice" == "yes" ]]; then
-				if tar -xzf content-$arch.tar.gz -C "$tmpdir/$package/content"; then
-					echo -e "$p_info Successfully extracted package."
-				else
-					echo -e "$p_error Failed to extract $package."
-					exit 1
-				fi
-			else
-				echo -e "$p_error Failed to install $package."
-				exit 1
-			fi
-		fi
+		[[ "$nobuild" == "true" ]] && [[ "$(sha512sum content-$arch.tar.gz)" == "${!contentchecksumvar}" ]] && tar -xzf content-$arch.tar.gz -C content && echo -e "$p_info Successfully extracted package."
 	fi
 	! cd content && echo -e "$p_error Failed to install $package." && exit 1
 	! $suauth cp -rf . / && echo -e "$p_error Failed to install $package." && exit 1
@@ -309,14 +287,14 @@ pkg_install() {
 	done
 	shopt -u globstar
 	type -t shoppepkg_postinstall &>/dev/null && echo -e "  - $p_info Running post-install..." && ! shoppepkg_postinstall && echo -e "$p_warn Post-install script failed, but package's files were already copied! It is reccomended to reinstall the package, and if that doesn't help, contact the package's maintainer."
-	if grep "^$package " "$pkglist" &>/dev/null; then
+	if grep "^$package " "$pkglist"; then
 		sed "/^$package\ /d" "$pkglist" > "${pkglist}-tmp"
 		mv "${pkglist}-tmp" "$pkglist"
 	fi
 	# shellcheck disable=SC2154
 	echo "$package $pkgrel $pkgver" >> "$pkglist"
 	# shellcheck disable=SC2154
-	if grep "^$package " "$deplist" &>/dev/null; then
+	if grep "^$package " "$deplist"; then
 		sed "/^$package\ /d" "$deplist" > "${deplist}-tmp"
 		mv "${deplist}-tmp" "$deplist"
 	fi
@@ -477,8 +455,8 @@ shoppe_install() {
 			success="0"
 			[[ "$pm" ]] && $frontend_query ^$package$ &>/dev/null && tofrontend="$tofrontend $package" && tocheck="${tocheck/$package/}" && continue
 			pkg_fetch
-			source "$tmpdir/$package/shoppepkg" &>/dev/null
-			[[ "$package" == *"-git" ]] && [[ "$forcebuild" != "true" ]] && [[ "$nobuild" != "true" ]] && echo -e "$p_info $package will be built manually." && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg" && nobuild=false
+			source "$tmpdir/$package/shoppepkg"
+			[[ "$package" = *"-git" ]] && echo -e "$p_info $package will be built manually." && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg" && nobuild=false
 			#if [[ "$force" != "true" ]] && grep "^$package $pkgrel $pkgver" "$pkglist" &>/dev/null; then; fi
 			if [[ "$force" != "true" ]] && [[ "$current_uptodate" == "true" ]]; then
 				if grep "^$package " "$deplist" &>/dev/null; then
@@ -519,7 +497,7 @@ shoppe_install() {
 		pkg_install
 		if [[ "$packagemake" == "true" ]]; then
 			tar -czf content-$arch.tar.gz content
-			echo "content_${arch}_checksum='$(sha512sum content-$arch.tar.gz)'" >> "$tmpdir/$package/shoppepkg"
+			echo "content_${arch}_checksum=$(sha512sum content-$arch.tar.gz)" >> "$tmpdir/$package/shoppepkg"
 			mkdir "$tmpdir/$package/topackage"
 			mv content-$arch.tar.gz "$tmpdir/$package/topackage"
 			mv "$tmpdir/$package/shoppepkg" "$tmpdir/$package/topackage"
@@ -546,7 +524,7 @@ shoppe_remove() {
 			# - is a dependency to another package
 			# it will be skipped, unless the user provides the --force switch.
 			if [[ "$force" != "true" ]]; then
-				grep "^$package " "$deplist" &>/dev/null && tocheck="${tocheck/$package/}" && continue
+				grep "^$package " "$deplist" && tocheck="${tocheck/$package/}" && continue
 				for dir in "$pkginfo"/*; do
 					if [[ "$(basename $(dirname $dir))" != "$package" ]] && [[ -e "$dir/dependencies" ]] && grep "^$package " "$dir/dependencies" &>/dev/null; then
 						tocheck="${tocheck/$package/}"
@@ -557,7 +535,7 @@ shoppe_remove() {
 				[[ "$cont" == "true" ]] && continue
 			fi
 			grep "^$package " "$deplist" &>/dev/null && tocheck="${tocheck/$package/}" && continue
-			grep "^$package " "$pkglist.frontend" &>/dev/null && tofrontend="$tofrontend $package" && currentfrontend="true"
+			grep "^$package " "$pkglist.frontend" && tofrontend="$tofrontend $package" && currentfrontend="true"
 			tocheck="${tocheck/$package/}"
 			# shellcheck disable=SC2086
 			[[ "$currentfrontend" != "true" ]] && tocheck="$tocheck $(cat $pkginfo/$package/dependencies | tr '\n' ' ')" && toremove="$package"
