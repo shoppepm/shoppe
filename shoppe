@@ -315,7 +315,7 @@ pkg_remove() {
 ## Frontend
 
 # Supported package managers:
-availablePM="pkg apt apt-get dnf yum yay yaourt pacaur pacman zypper apk eopkg"
+availablePM="pkg zypper apt apt-get dnf yum yay yaourt pacaur pacman apk eopkg"
 
 # shellcheck disable=SC2086
 apt_query() {
@@ -386,13 +386,13 @@ frontend_init() {
 			frontend_listall="$pm -Q"
 			frontend_noconfirm="--noconfirm"
 			;;
-		zypper) # zypper (SLES, openSUSE-based)
+		zypper) # zypper (openSUSE-based)
 			frontend_install="$suauth $pm install"
 			frontend_remove="$suauth $pm remove"
 			frontend_update="$suauth dnf clean expire-cache && $suauth dnf check-update"
 			frontend_upgrade="$suauth $pm update"
 			frontend_query="$pm info"
-			frontend_listall="rpm -qa | sed -i 's/\:/\ 0\ /g'"
+			frontend_listall="rpm -qa --qf '%{NAME}\n'"
 			frontend_noconfirm="--non-interactive"
 			;;
 		apk) # apk (Alpine Linux, postmarketOS)
@@ -413,9 +413,16 @@ frontend_init() {
 			;;
 	esac
 	if [[ "$noconfirm" == "true" ]] && [[ "$frontend_noconfirm" ]]; then
-		frontend_install="$frontend_install $frontend_noconfirm"
-		frontend_remove="$frontend_remove $frontend_noconfirm"
-		frontend_upgrade="$frontend_upgrade $frontend_noconfirm"
+		if [[ "$pm" == "zypper" ]]; then
+			# Zypper requires --non-interactive to be placed before the main command.
+			frontend_install="$suauth $pm $frontend_noconfirm install"
+			frontend_remove="$suauth $pm $frontend_noconfirm remove"
+			frontend_upgrade="$suauth $pm $frontend_noconfirm upgrade"
+		else
+			frontend_install="$frontend_install $frontend_noconfirm"
+			frontend_remove="$frontend_remove $frontend_noconfirm"
+			frontend_upgrade="$frontend_upgrade $frontend_noconfirm"
+		fi
 	fi
 }
 
