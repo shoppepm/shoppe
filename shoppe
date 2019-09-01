@@ -70,10 +70,10 @@ More documentation is available at /usr/share/doc/shoppe.
 
 Commands:
 
-	install
+	install <packages>
 		Installs packages.
 
-	remove
+	remove <packages>
 		Removes packages.
 
 	update
@@ -82,11 +82,15 @@ Commands:
 	upgrade
 		Upgrades all packages.
 
-	info
+	info <packages>
 		Shows information about a package.
 
 	listall
 		Lists all installed packages.
+
+	addrepo <repositories>
+		Adds a repository (or multiple repositories). Automatically
+		chooses the repository type.
 
 	help
 		Displays a short summary of available commands.
