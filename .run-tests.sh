@@ -30,7 +30,7 @@ ls ~/.config/shoppe/*
 ./shoppe remove boredbutton +nc
 ! [[ -e "/usr/bin/bored" ]]
 
-./shoppe install boredbutton.tar.gz +nc
+./shoppe install ~/boredbutton.tar.gz +nc
 [[ -e "/usr/bin/bored" ]]
 
 ls ~/.config/shoppe
