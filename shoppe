@@ -192,12 +192,12 @@ pkg_fetch() {
 		mkdir "$tmpdir/$newpackage"
 		if tar -xf "$package" -C "$tmpdir/$newpackage"; then
 			tocheck="${tocheck/$package/$newpackage}"
+			package="$newpackage"
 			return 0
 		else
 			echo -e "$p_error Failed to extract $package."
 			exit 1
 		fi
-		package="$newpackage"
 	fi
 	[[ -f "$package" ]] && [[ "$package" != *".tar.gz" ]] && grep "pkgname=" "$package" && echo "nobuild='false'" >> "$package" && mkdir "$tmpdir/$package" && cp "$package" "$tmpdir/$package/shoppepkg" && package="$(basename $package)" && return 0
 	[[ ! -e "$tmpdir/$package" ]] && mkdir "$tmpdir/$package"
