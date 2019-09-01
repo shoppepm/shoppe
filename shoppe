@@ -186,10 +186,20 @@ pkg_fetch() {
 	success="0"
 	repoID=0
 	echo -e "$p_info Fetching package: $package"
-	mkdir "$tmpdir/$package"
-	[[ "$package" = *"http"*"://"* ]] && wget "$package" && if tar -xf "$package" -C "$tmpdir/${package/\.tar\.gz/}"; then newpkgname="${package/\.tar\.gz/}"; tocheck="${tocheck/$package/$newpkgname}"; return 0; else echo -e "$p_error Failed to extract $package."; fi
-	[[ -f "$package" ]] && [[ "$package" == *".tar.gz" ]] && if tar -xf "$package" -C "$tmpdir/${package/\.tar\.gz/}"; then newpkgname="${package/\.tar\.gz/}"; tocheck="${tocheck/$package/$newpkgname}"; return 0; else echo -e "$p_error Failed to extract $package."; fi
-	[[ -f "$package" ]] && grep "pkgname=" "$package" && echo "nobuild='false'" >> "$package" && cp "$package" "$tmpdir/$package/shoppepkg"
+	if [[ "$package" == *".tar.gz" ]]; then
+		[[ "$package" = *"http"*"://"* ]] && wget "$package"
+		newpackage="$(basename ${package/\.tar\.gz})"
+		mkdir "$tmpdir/$package"
+		if tar -xf "$package" -C "$tmpdir/$package"; then
+			tocheck="${tocheck/$package/$newpackage}"
+			return 0
+		else
+			echo -e "$p_error Failed to extract $package."
+			exit 1
+		fi
+		package="$newpackage"
+	fi
+	[[ -f "$package" ]] && [[ "$package" != *".tar.gz" ]] && grep "pkgname=" "$package" && echo "nobuild='false'" >> "$package" && cp "$package" "$tmpdir/$package/shoppepkg" && package="$(basename $package)"
 	while IFS="" read -r repo || [[ -n "$repo" ]]; do
 		let repoID++
 		if grep "^$package " "$configdir/repodata/$repoID" &>/dev/null; then
