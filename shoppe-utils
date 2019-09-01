@@ -102,6 +102,11 @@ Commands:
 		repo restock <repository directory>
 			Updates the package list in a repository.
 
+		repo addpkg <package> <repository directory>
+			Adds a full prebuilt package to a repository. Only takes one
+			package. If no repository directory is provided, the package
+			will be extracted in the current directory.
+
 	tools:
 		tools clearconfig
 			Removes all shoppe configuration files.
@@ -211,6 +216,15 @@ utils_repo_restock() {
 	done
 }
 
+utils_repo_addpkg() {
+	repo="$2"
+	[[ -z "$1" ]] && echo -e "$p_error No package to add!"
+	[[ -z "$2" ]] && repo="$PWD"
+	[[ ! -d "$2" ]] && echo -e "$p_error $2 does not exist, or is not a directory." && exit 1
+	mkdir "$2/${1/\.tar\.gz/}"
+	tar xzf "$1" -C "$2/${1/\.tar\.gz/}" || echo -e "$p_error Failed to extract package." && exit 1
+}
+
 ## tools
 utils_tools_clearconfig() {
 	configdir="$HOME/.config/shoppe"
@@ -232,6 +246,7 @@ esac
 if [[ "$cmdset" == "repo" ]]; then
 	case $2 in
 		'restock') command='utils_repo_restock';;
+		'addpkg')  command="utils_repo_addpkg $packages";;
 		*) echo -e "$p_error Invalid command: $1 $2. Use '$0 help' for information about available commands." && exit 1;;
 
 	esac
