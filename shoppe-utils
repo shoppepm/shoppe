@@ -175,7 +175,7 @@ utils_pkg_validate() {
 		if [[ "$tocheck" == *".tar.gz" ]]; then if [[ ! -e "$tmpdir/package/shoppepkg" ]]; then echo -e "$p_warn $tocheck does not contain a shoppepkg file."; let failure++; continue; else tocheck="$tmpdir/package/shoppepkg"; fi; fi
 		unset currentfail
 		if [[ ! -e "$tocheck" ]]; then echo -e "$p_error $tocheck doesn't exist!"; let failure++; continue; fi
-		command -v shellcheck &>/dev/null && echo -e "$p_info Shellcheck output for $tocheck:" && shellcheck "$tocheck"
+		command -v shellcheck &>/dev/null && echo -e "$p_info Shellcheck output for $tocheck:" && shellcheck -e SC2148 -e SC2034 "$tocheck"
 		source "$tocheck"
 		for variable in pkgname pkgdesc pkgver pkgarch source sourcetype; do
 			[[ -z "${!variable}" ]] && echo -e "$p_error Missing required variable: $variable" && currentfail='1'
