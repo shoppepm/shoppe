@@ -199,7 +199,8 @@ pkg_fetch() {
 		fi
 		package="$newpackage"
 	fi
-	[[ -f "$package" ]] && [[ "$package" != *".tar.gz" ]] && grep "pkgname=" "$package" && echo "nobuild='false'" >> "$package" && cp "$package" "$tmpdir/$package/shoppepkg" && package="$(basename $package)"
+	[[ -f "$package" ]] && [[ "$package" != *".tar.gz" ]] && grep "pkgname=" "$package" && echo "nobuild='false'" >> "$package" && mkdir "$tmpdir/$package" && cp "$package" "$tmpdir/$package/shoppepkg" && package="$(basename $package)" && return 0
+	[[ ! -e "$tmpdir/$package" ]] && mkdir "$tmpdir/$package"
 	while IFS="" read -r repo || [[ -n "$repo" ]]; do
 		let repoID++
 		if grep "^$package " "$configdir/repodata/$repoID" &>/dev/null; then
@@ -478,7 +479,7 @@ shoppe_install() {
 	# Usage: installs packages specified in the $packages variable.
 	echo -e "$p_info Searching on shoppe repositories..."
 	rm -rf "$tmpdir"
-	mkdir "$tmpdir"
+	mkdir -p "$tmpdir"
 	[[ -z "$packages" ]] && echo -e "$p_error Nothing to install!" && exit 1
 	[[ ! -e "$configdir/repodata/1" ]] && echo -e "$p_warn No repositories fetched. Running update..." && shoppe_update
 #	totalrepos="$(find $configdir/repodata -mindepth 1 -type f | wc -l)" # total amount of repositories
@@ -623,7 +624,7 @@ shoppe_update() {
 shoppe_upgrade() {
 	shoppe_update
 	rm -rf "$tmpdir"
-	mkdir "$tmpdir"
+	mkdir -p "$tmpdir"
 	while IFS="" read -r line || [[ -n "$line" ]]; do
 		# shellcheck disable=SC2086
 		package="$(echo $line | awk '{print $1;}')"
