@@ -71,7 +71,8 @@ More documentation is available at /usr/share/doc/shoppe.
 Commands:
 
 	install <packages>
-		Installs packages.
+		Installs packages. This automatically takes care of full (prebuilt)
+		packages and shoppepkg files.
 
 	remove <packages>
 		Removes packages.
@@ -186,8 +187,9 @@ pkg_fetch() {
 	repoID=0
 	echo -e "$p_info Fetching package: $package"
 	mkdir "$tmpdir/$package"
-	[[ "$package" = *"http"*"://"* ]] && wget "$package" && if tar -xf "$package" -C "$tmpdir/$package"; then return 0; else echo -e "$p_error Failed to extract $package."; fi
-	[[ -f "$package" ]] && if tar -xf "$package" -C "$tmpdir/$package"; then return 0; else echo -e "$p_error Failed to extract $package."; fi
+	[[ "$package" = *"http"*"://"* ]] && wget "$package" && if tar -xf "$package" -C "$tmpdir/${package/\.tar\.gz/}"; then newpkgname="${package/\.tar\.gz/}"; tocheck="${tocheck/$package/$newpkgname}"; return 0; else echo -e "$p_error Failed to extract $package."; fi
+	[[ -f "$package" ]] && [[ "$package" == *".tar.gz" ]] && if tar -xf "$package" -C "$tmpdir/${package/\.tar\.gz/}"; then newpkgname="${package/\.tar\.gz/}"; tocheck="${tocheck/$package/$newpkgname}"; return 0; else echo -e "$p_error Failed to extract $package."; fi
+	[[ -f "$package" ]] && grep "pkgname=" "$package" && echo "nobuild='false'" >> "$package" && cp "$package" "$tmpdir/$package/shoppepkg"
 	while IFS="" read -r repo || [[ -n "$repo" ]]; do
 		let repoID++
 		if grep "^$package " "$configdir/repodata/$repoID" &>/dev/null; then
