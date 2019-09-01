@@ -189,8 +189,8 @@ pkg_fetch() {
 	if [[ "$package" == *".tar.gz" ]]; then
 		[[ "$package" = *"http"*"://"* ]] && wget "$package"
 		newpackage="$(basename ${package/\.tar\.gz})"
-		mkdir "$tmpdir/$package"
-		if tar -xf "$package" -C "$tmpdir/$package"; then
+		mkdir "$tmpdir/$newpackage"
+		if tar -xf "$package" -C "$tmpdir/$newpackage"; then
 			tocheck="${tocheck/$package/$newpackage}"
 			return 0
 		else
