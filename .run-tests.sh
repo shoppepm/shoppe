@@ -30,11 +30,21 @@ ls ~/.config/shoppe/*
 ./shoppe remove boredbutton +nc
 ! [[ -e "/usr/bin/bored" ]]
 
+./shoppe install boredbutton.tar.gz +nc
+[[ -e "/usr/bin/bored" ]]
+
+ls ~/.config/shoppe
+ls ~/.config/shoppe/*
+
+./shoppe remove boredbutton +nc
+! [[ -e "/usr/bin/bored" ]]
+
 ./shoppe update +nc
 ./shoppe upgrade +nc
 ./shoppe info boredbutton
 ! ./shoppe info pkgthatdoesnotexist
 ./shoppe listall
+./shoppe fetch boredbutton
 
 #
 # shoppe-utils testing
