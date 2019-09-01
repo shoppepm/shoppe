@@ -36,6 +36,29 @@ ls ~/.config/shoppe/*
 ! ./shoppe info pkgthatdoesnotexist
 ./shoppe listall
 
+#
+# shoppe-utils testing
+#
+
+echo "$(echo '#!/bin/bash -x' && grep -v '^\#\!\/' shoppe-utils)" > shoppe-utils-testing
+mv shoppe-utils-testing shoppe-utils
+chmod +x shoppe-utils
+
+! ./shoppe-utils
+./shoppe-utils --version
+./shoppe-utils --help
+! ./shoppe-utils pkg
+! ./shoppe-utils subsetthatdoesnotexist
+
+wget https://raw.githubusercontent.com/shoppepm/shoppe-repos/master/boredbutton/shoppepkg
+./shoppe-utils pkg validate shoppepkg
+echo "broken package" > brokenpkg
+! ./shoppe-utils pkg validate brokenpkg
+! ./shoppe-utils pkg validate shoppepkg brokenpkg
+
+./shoppe-utils tools clearconfig
+[[ ! -e ~/.config/shoppe/ ]]
+
 #if [[ "$(git branch | grep \* | cut -d ' ' -f2)" == "develop" ]]; then
 #	git checkout master-candidate
 #	git merge develop
