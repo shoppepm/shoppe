@@ -1,6 +1,22 @@
 # Package
 
-Each shoppe package has two core files: shoppepkg, which contains the information about the package, and content.tar.gz, which contains the files for the package. If content.tar.gz is not present, the package will be built manually.
+Each shoppe package has two core files: shoppepkg, which contains the information about the package, and content-<architecture>.tar.gz, which contains the files for the package. If shoppe cannot find a content tarball for the current architecture, the package will be built manually.
+
+## Creating a package
+
+To create a package, you have to make a shoppepkg for it. To do that, you can use the shoppe utilities:
+
+```bash
+$ shoppe-utils pkg create
+```
+
+This will ask you multiple questions about the package, such as the package name, description, etc. Afterwards, you can open the resulting shoppepkg file and add the following:
+
+- a source variable
+- a source type variable
+- build steps
+
+See the example shoppe package below for more information.
 
 ## Example shoppe package
 
@@ -17,7 +33,6 @@ depends="bash git curl wget" # Dependencies, separated by spaces.
 # optdepends="" # Optional dependencies, separated by spaces.
 makedepends="make" # Build dependencies, separated by spaces.
 conflicts="shoppe-git" # Packages this package conflicts with, separated by spaces. Most of the time this will contain the rolling version of a package.
-archdependent="false" # Does the package require separate builds for each architecture? Most of the time, this will be true, but if you're providing an architecture independent app like a bash/python script this will be set to false.
 
 # Building/installation instructions
 source="https://github.com/shoppepm/shoppe" # Source link.
