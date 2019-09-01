@@ -2,7 +2,7 @@
 # shellcheck disable=SC1090,SC2001,SC1091,SC2219
 ##
 ## shoppe - a portable package manager that integrates with your current package manager
-version="1.0"
+version="1.1.0"
 ##
 ## Licensed under the MIT License
 
@@ -661,6 +661,16 @@ shoppe_fetch() {
 	for package in $packages; do pkg_fetch "$package"; done
 }
 
+shoppe_addrepo() {
+	for repo in $packages; do
+		if [[ "$repo" == "http"*"://"* ]]; then
+			echo "http: $repo" >> "$repolist"
+		else
+			echo "local: $repo" >> "$repolist"
+		fi
+	done
+}
+
 ## Option parsing
 [[ -z $1 ]] && echo -e "$p_error Nothing to do! Use 'shoppe help' for information about available commands." && exit 1
 case $1 in
@@ -671,6 +681,7 @@ case $1 in
 		'fetch') command="shoppe_fetch";;
 		'info') command="shoppe_info";;
 		'listall') command="shoppe_listall";;
+		'addrepo') command="shoppe_addrepo";;
 		'help'|'--help'|'-h'|'+help'|'+h') shoppe_help;;
 		'--version'|'-v'|'version') echo "shoppe $version"; exit 0;;
 		*) echo -e "$p_error Invalid command: $1. Use 'shoppe help' for information about available commands."; exit 1;;
