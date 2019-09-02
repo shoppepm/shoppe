@@ -246,7 +246,7 @@ esac
 if [[ "$cmdset" == "repo" ]]; then
 	case $2 in
 		'restock') command='utils_repo_restock';;
-		'addpkg')  command="utils_repo_addpkg $packages";;
+		'addpkg')  command="utils_repo_addpkg";;
 		*) echo -e "$p_error Invalid command: $1 $2. Use '$0 help' for information about available commands." && exit 1;;
 
 	esac
@@ -299,6 +299,6 @@ case $2 in
 	'version'|'--version'|'-v'|'+v') echo "shoppe-utils $version"; exit 0;;
 esac
 auth_init
-$command
+if [[ "$command" == "utils_repo_addpkg" ]]; then $command $packages; else $command; fi
 exit 0
 
