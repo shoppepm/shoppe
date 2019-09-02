@@ -469,7 +469,7 @@ frontend_harvest() {
 	# This function harvests data from the available frontend.
 	# Usage: frontend_harvest
 	[[ -z "$pm" ]] && return 0
-	$frontend_listall >> "$pkglist.frontend"
+	$frontend_listall > "$pkglist.frontend"
 }
 ## Main functions
 
@@ -555,7 +555,7 @@ shoppe_remove() {
 		for package in $tocheck; do
 			unset currentfrontend
 			if [[ "$pm" ]]; then
-				! grep "^$package " "$pkglist" &>/dev/null && ! grep "^$package " "$pkglist.frontend" && echo -e "$p_info Package $package is not installed, skipping..." && tocheck="${tocheck/$package/}" && continue
+				! grep "^$package " "$pkglist" &>/dev/null && ! grep "^$package " "$pkglist.frontend" &>/dev/null && echo -e "$p_info Package $package is not installed, skipping..." && tocheck="${tocheck/$package/}" && continue
 			else
 				! grep "^$package " "$pkglist" &>/dev/null && echo -e "$p_info Package $package is not installed, skipping..." && tocheck="${tocheck/$package/}" && continue
 			fi
