@@ -220,7 +220,7 @@ utils_repo_addpkg() {
 	repo="$2"
 	[[ -z "$1" ]] && echo -e "$p_error No package to add!"
 	[[ -z "$2" ]] && repo="$PWD"
-	[[ ! -d "$2" ]] && echo -e "$p_error $2 does not exist, or is not a directory." && exit 1
+	[[ ! -d "$repo" ]] && echo -e "$p_error The repository directory ($2) does not exist, or is not a directory." && exit 1
 	mkdir "$2/${1/\.tar\.gz/}"
 	tar xzf "$1" -C "$2/${1/\.tar\.gz/}" || echo -e "$p_error Failed to extract package." && exit 1
 }
@@ -267,13 +267,13 @@ if [[ "$cmdset" == "tools" ]]; then
 fi
 for parse in $*; do
 	let currentcmd++
-	[[ "$currentcmd" == "3" ]] && {
-	case $parse in
-		-*) switches="$switches $parse";;
-		+*) shoppeswitches="$shoppeswitches $parse";;
-		*) packages="$packages $parse";;
-	esac
-	}
+	if [[ "$currentcmd" -gt "2" ]]; then
+		case $parse in
+			-*) switches="$switches $parse";;
+			+*) shoppeswitches="$shoppeswitches $parse";;
+			*) packages="$packages $parse";;
+		esac
+	fi
 done
 command=$(echo "$command" | sed -e 's/^[ \t]*//')
 packages=$(echo "$packages" | sed -e 's/^[ \t]*//')
