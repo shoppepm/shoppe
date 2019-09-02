@@ -228,7 +228,7 @@ utils_repo_addpkg() {
 ## tools
 utils_tools_clearconfig() {
 	configdir="$HOME/.config/shoppe"
-	source "$configdir/config"
+	[[ -e "$configdir/config" ]] && source "$configdir/config"
 	rm -rf "$configdir"
 }
 
