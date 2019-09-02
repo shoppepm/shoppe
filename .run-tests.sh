@@ -75,6 +75,9 @@ echo "broken package" > brokenpkg
 
 mkdir ~/testrepo
 ./shoppe-utils repo addpkg ~/boredbutton.tar.gz ~/testrepo
+sed "/pkgrel/d" "$HOME/testrepo/boredbutton/shoppepkg" > "$HOME/testrepo/boredbutton/shoppepkg.tmp"
+mv "$HOME/testrepo/boredbutton/shoppepkg.tmp" "$HOME/testrepo/boredbutton/shoppepkg"
+echo "pkgrel='999'" >> "$HOME/testrepo/boredbutton/shoppepkg"
 ./shoppe-utils repo restock ~/testrepo +nc
 ls ~/testrepo/*
 
@@ -89,7 +92,6 @@ if [[ "$branch" == "develop" ]]; then
 	echo "$(echo '#!/usr/bin/env bash' && grep -v '^\#\!\/' shoppe-utils)" > shoppe-utils-testing
 	mv shoppe-utils-testing shoppe-utils
 	chmod +x shoppe-utils
-
 	openssl aes-256-cbc -k "$travis_key_password" -d -md sha256 -a -in travis_key.enc -out travis_key
 	echo "Host github.com" > ~/.ssh/config
 	echo "  IdentityFile  $(pwd)/travis_key" >> ~/.ssh/config
