@@ -612,7 +612,7 @@ shoppe_update() {
 				"local: "*) cp "${line/local\:\ /}/pkglist" "$configdir/repodata/$repoID" && echo "$line" > "$configdir/repodata/tmp" && cat "$configdir/repodata/$repoID" >> "$configdir/repodata/tmp" && mv "$configdir/repodata/tmp" "$configdir/repodata/$repoID" && success="1" && echo -e "$p_info $repoID is $line";;
 				"http: "*) wget -q "${line/http\:\ /}/pkglist" -O "$configdir/repodata/$repoID" && echo "$line" > "$configdir/repodata/tmp" && cat "$configdir/repodata/$repoID" >> "$configdir/repodata/tmp" && mv "$configdir/repodata/tmp" "$configdir/repodata/$repoID" &&  success="1" && echo -e "$p_debug $repoID is $line";;
 			esac
-			[[ "$success" == "0" ]] && let repoID-- && echo -e "$p_warn Failed to fetch repository: $line"
+			[[ "$success" == "0" ]] && let repoID-- && echo -e "$p_error Failed to fetch repository: $line" && exit 1
 		fi
 	done < "$repolist"
 	[[ "$repoID" == "0" ]] && echo -e "$p_error No repositories were fetched." && exit 1
