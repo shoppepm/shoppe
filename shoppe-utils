@@ -222,12 +222,10 @@ utils_repo_addpkg() {
 	[[ -z "$2" ]] && repo="$PWD"
 	[[ ! -d "$repo" ]] && echo -e "$p_error The repository directory ($2) does not exist, or is not a directory." && exit 1
 	[[ -e "$tmpdir" ]] && rm -rf "$tmpdir"
-	mkdir -p "$tmpdir"
-	if ! tar xzf "$1" -C "$tmpdir"; then echo -e "$p_error Failed to extract package."; exit 1; fi
-	source "$tmpdir/shoppepkg"
-	mkdir "$2/$pkgname"
-	cd "$tmpdir"
-	mv . "$2/$pkgname"
+	pkgname="$(basename $1)"
+	pkgname="${pkgname/\.tar\.gz/}"
+	mkdir -p "$2/$pkgname"
+	if ! tar xzf "$1" -C "$2/$pkgname"; then echo -e "$p_error Failed to extract package."; exit 1; fi
 	echo -e "$p_info Added $pkgname to $2."
 	exit 0
 }
