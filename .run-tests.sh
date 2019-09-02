@@ -85,12 +85,9 @@ ls ~/testrepo/*
 ./shoppe upgrade +nc
 
 if [[ "$TRAVIS_BRANCH" == "develop" ]]; then
-	echo "$(echo '#!/usr/bin/env bash' && grep -v '^\#\!\/' shoppe)" > shoppe-testing
-	mv shoppe-testing shoppe
-	chmod +x shoppe
-	echo "$(echo '#!/usr/bin/env bash' && grep -v '^\#\!\/' shoppe-utils)" > shoppe-utils-testing
-	mv shoppe-utils-testing shoppe-utils
-	chmod +x shoppe-utils
+	git clone https://github.com/shoppepm/shoppe "$HOME/shoppetopush"
+	cd "$HOME/shoppetopush"
+	git reset --hard "$TRAVIS_COMMIT"
 	openssl aes-256-cbc -k "$travis_key_password" -d -md sha256 -a -in travis_key.enc -out travis_key
 	echo "Host github.com" > ~/.ssh/config
 	echo "  IdentityFile  $(pwd)/travis_key" >> ~/.ssh/config
