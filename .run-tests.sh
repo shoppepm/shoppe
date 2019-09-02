@@ -76,7 +76,7 @@ echo "broken package" > brokenpkg
 mkdir ~/testrepo
 ./shoppe-utils repo addpkg ~/boredbutton.tar.gz ~/testrepo
 ./shoppe-utils repo restock ~/testrepo +nc
-ls ~/testrepo
+ls ~/testrepo/*
 
 ./shoppe addrepo ~/testrepo
 ./shoppe upgrade +nc
