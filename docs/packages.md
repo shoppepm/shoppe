@@ -18,6 +18,10 @@ This will ask you multiple questions about the package, such as the package name
 
 See the example shoppe package below for more information.
 
+## Building a package
+
+Simply add it to a repository (see: [Repositories](repositories.md)), add the repository and install with the +pm switch, or use ``shoppe install /path/to/shoppepkg +pm``.
+
 ## Example shoppe package
 
 ```bash
@@ -26,7 +30,7 @@ pkgname="shoppe" # Name of the package. This should be lowercase unless it's upp
 pkgdesc="A package manager frontend/replacement" # Short description of the package. Make sure it doesn't end with a dot (stylistic choice).
 pkgarch="all" # The architecture this package is meant for. If it runs on all architectures, use 'all', otherwise use the architecture name that 'uname -s' returns.
 pkgver="v0.1" # Package version. For packages being built from the newest source, this should be set to "rolling".
-pkgrel="1" # Package revision. Bump this every time you change the package (eg. update to next version, fix some commands). For packages being built from newest source, this should be set to "rolling".
+pkgrel="1" # Package revision. This is automatically bumped every time you rebuild the package. For packages being built from newest source, this should be set to "rolling".
 license="GPL 3-Clause" # License. This is optional.
 url="https://github.com/knuxify/shoppe" # Project website. Optional. If this is an open-source project, link the source page.
 depends="bash git curl wget" # Dependencies, separated by spaces.
