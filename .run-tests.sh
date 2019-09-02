@@ -78,7 +78,10 @@ mkdir ~/testrepo
 ./shoppe addrepo ~/testrepo
 ./shoppe upgrade
 
-if [[ "$(git branch | grep \* | cut -d ' ' -f2)" == "develop" ]]; then
+set +ev
+
+branch="$(git branch | grep \* | cut -d ' ' -f2)"
+if [[ "$branch" == "develop" ]]; then
 	openssl aes-256-cbc -k "$travis_key_password" -d -md sha256 -a -in travis_key.enc -out travis_key
 	echo "Host github.com" > ~/.ssh/config
 	echo "  IdentityFile  $(pwd)/travis_key" >> ~/.ssh/config
