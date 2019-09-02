@@ -539,7 +539,7 @@ shoppe_install() {
 			tar -czf content-$arch.tar.gz .
 			sed "/content\_${arch}\_checksum/d" "$tmpdir/$package/shoppepkg" > "$tmpdir/$package/shoppepkg.tmp"
 			mv "$tmpdir/$package/shoppepkg.tmp" "$tmpdir/$package/shoppepkg"
-			echo "content_${arch}_checksum=$(sha512sum content-$arch.tar.gz)" >> "$tmpdir/$package/shoppepkg"
+			echo "content_${arch}_checksum='$(sha512sum content-$arch.tar.gz)'" >> "$tmpdir/$package/shoppepkg"
 			mkdir "$tmpdir/$package/topackage"
 			mv content-$arch.tar.gz "$tmpdir/$package/topackage"
 			mv "$tmpdir/$package/shoppepkg" "$tmpdir/$package/topackage"
