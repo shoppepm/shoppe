@@ -85,6 +85,7 @@ ls ~/testrepo/*
 ./shoppe upgrade +nc
 
 branch="$(git branch | grep \* | cut -d ' ' -f2)"
+echo "Currently on branch $branch."
 if [[ "$branch" == "develop" ]]; then
 	echo "$(echo '#!/usr/bin/env bash' && grep -v '^\#\!\/' shoppe)" > shoppe-testing
 	mv shoppe-testing shoppe
