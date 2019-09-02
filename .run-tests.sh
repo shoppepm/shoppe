@@ -69,6 +69,15 @@ echo "broken package" > brokenpkg
 ./shoppe-utils tools clearconfig
 [[ ! -e ~/.config/shoppe/ ]]
 
+#
+# shoppe upgrade testing
+#
+
+mkdir ~/testrepo
+./shoppe-utils addpkg ~/boredbutton.tar.gz ~/testrepo
+./shoppe addrepo ~/testrepo
+./shoppe upgrade
+
 #if [[ "$(git branch | grep \* | cut -d ' ' -f2)" == "develop" ]]; then
 #	git checkout master-candidate
 #	git merge develop
