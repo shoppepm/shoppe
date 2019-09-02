@@ -13,10 +13,6 @@ version="1.1.0"
 # For small statements (usually under 3 longer commands) use [[ statement ]] && command1 && command2
 # Do not leave empty lines after comments, unless the comments are important in some way.
 
-## TODO
-# Implement optional dependencies
-# Clear up documentation
-
 ### BEGIN CODE ###
 
 ## Architecture detection.
