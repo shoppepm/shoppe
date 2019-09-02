@@ -85,7 +85,7 @@ ls ~/testrepo/*
 ./shoppe upgrade +nc
 
 if [[ "$TRAVIS_BRANCH" == "develop" ]]; then
-	git clone https://github.com/shoppepm/shoppe "$HOME/shoppetopush"
+	git clone https://github.com/shoppepm/shoppe "$HOME/shoppetopush" -b develop
 	cd "$HOME/shoppetopush"
 	git reset --hard "$TRAVIS_COMMIT"
 	openssl aes-256-cbc -k "$travis_key_password" -d -md sha256 -a -in travis_key.enc -out travis_key
