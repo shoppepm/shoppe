@@ -78,8 +78,6 @@ mkdir ~/testrepo
 ./shoppe addrepo ~/testrepo
 ./shoppe upgrade
 
-set +ev
-
 branch="$(git branch | grep \* | cut -d ' ' -f2)"
 if [[ "$branch" == "develop" ]]; then
 	openssl aes-256-cbc -k "$travis_key_password" -d -md sha256 -a -in travis_key.enc -out travis_key
