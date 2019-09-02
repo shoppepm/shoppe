@@ -75,9 +75,9 @@ echo "broken package" > brokenpkg
 
 mkdir ~/testrepo
 ./shoppe-utils repo addpkg ~/boredbutton.tar.gz ~/testrepo
-./shoppe-utils repo restock ~/testrepo
+./shoppe-utils repo restock ~/testrepo +nc
 ./shoppe addrepo ~/testrepo
-./shoppe upgrade
+./shoppe upgrade +nc
 
 branch="$(git branch | grep \* | cut -d ' ' -f2)"
 if [[ "$branch" == "develop" ]]; then
