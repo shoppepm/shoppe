@@ -334,7 +334,7 @@ pkg_install() {
 		mv "${deplist}-tmp" "$deplist"
 	fi
 	[[ "$depends" ]] && echo "$depends " >> "$pkginfo/$package/dependencies" && for dep in $depends; do echo "$dep " >> "$deplist"; done
-	[[ "$nobuild" == "false" ]] && [[ "$makedepends" ]] && echo "$makedepends " >> "$pkginfo/$package/dependencies" && for dep in $makedepends; do echo "$dep" >> "$deplist"; done
+	[[ "$nobuild" == "false" ]] && [[ "$makedepends" ]] && echo "$makedepends " >> "$pkginfo/$package/dependencies" && for dep in $makedepends; do echo "$dep " >> "$deplist"; done
 }
 
 pkg_remove() {
@@ -642,7 +642,7 @@ shoppe_upgrade() {
 		echo -e "$p_info Fetching prebuilt files..."
 		pkg_fetch_content
 		echo -e "$p_info Upgrading $package..."
-		! pkg_remove && echo -e "$p_error Failed to upgrade $package." && exit 1
+		#! pkg_remove && echo -e "$p_error Failed to upgrade $package." && exit 1
 		! pkg_install && echo -e "$p_error Failed to upgrade $package." && exit 1
 	done
 }
