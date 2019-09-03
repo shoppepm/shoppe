@@ -2,7 +2,7 @@
 # shellcheck disable=SC1090,SC2001,SC1091,SC2219
 ##
 ## shoppe - a portable package manager that integrates with your current package manager
-version="1.0"
+version="1.1.0"
 ##
 ## Licensed under the MIT License
 
@@ -12,10 +12,6 @@ version="1.0"
 # Use if statements for longer commands and things that require if;else statements.
 # For small statements (usually under 3 longer commands) use [[ statement ]] && command1 && command2
 # Do not leave empty lines after comments, unless the comments are important in some way.
-
-## TODO
-# Implement optional dependencies
-# Clear up documentation
 
 ### BEGIN CODE ###
 
@@ -27,10 +23,11 @@ arch="$(uname -m)"
 
 ## Prefixes
 # These are used to prefix command output.
-p_info="\033[34m::\033[0m"
-p_warn="\033[33m!!\033[0m"
-p_error="\033[31m!!\033[0m"
-p_debug="\033[35m~!\033[0m"
+p_success="\033[32;1m||\033[0m"
+p_info="\033[34;1m::\033[0m"
+p_warn="\033[33;1m!!\033[0m"
+p_error="\033[31;1m!!\033[0m"
+p_debug="\033[35;1m~!\033[0m"
 
 ## Configuration. This is overwritten by the main config file ($configdir/config)
 configdir="$HOME/.config/shoppe"
@@ -49,7 +46,8 @@ force="false"
 [[ ! -e "$configdir/repodata" ]] && mkdir "$configdir/repodata"
 [[ ! -e "$repolist" ]] && echo "http: https://raw.githubusercontent.com/shoppepm/shoppe-repos/master" > "$repolist"
 [[ ! -e "$pkglist.frontend" ]] && touch "$pkglist.frontend"
-[[ ! -e "$pkglist" ]] && touch "$pkglist"
+[[ ! -e "$pkglist" ]] && echo "shoppe 0 $version" > "$pkglist"
+! grep '^shoppe ' "$pkglist" &>/dev/null && echo "shoppe 0 $version" >> "$pkglist"
 
 ## Help (--help)
 shoppe_help() { echo "\
@@ -70,10 +68,11 @@ More documentation is available at /usr/share/doc/shoppe.
 
 Commands:
 
-	install
-		Installs packages.
+	install <packages>
+		Installs packages. This automatically takes care of full (prebuilt)
+		packages and shoppepkg files.
 
-	remove
+	remove <packages>
 		Removes packages.
 
 	update
@@ -82,11 +81,15 @@ Commands:
 	upgrade
 		Upgrades all packages.
 
-	info
+	info <packages>
 		Shows information about a package.
 
 	listall
 		Lists all installed packages.
+
+	addrepo <repositories>
+		Adds a repository (or multiple repositories). Automatically
+		chooses the repository type.
 
 	help
 		Displays a short summary of available commands.
@@ -164,10 +167,10 @@ get_source() {
     case $sourcetype in
         git) git clone "$source" "source";;
         git-tag) git clone --branch "$tag" "$source" "source";;
-        tar) wget "$source"; tar xvf ./* -C source;;
-        targz) wget "$source"; tar xzf ./* -C source;;
+        tar) wget "$source"; mkdir source; tar xvf ./* -C source;;
+        targz) wget "$source"; mkdir source; tar xzf ./* -C source;;
         #gz) wget "$source"; gunzip ./*;;
-        tarxz) wget "$source"; tar xJf ./* -C source;;
+        tarxz) wget "$source"; mkdir source; tar xJf ./* -C source;;
 		zip) wget "$source"; mkdir source; unzip ./* -d source;;
     esac
 }
@@ -181,9 +184,21 @@ pkg_fetch() {
 	success="0"
 	repoID=0
 	echo -e "$p_info Fetching package: $package"
-	mkdir "$tmpdir/$package"
-	[[ "$package" = *"http"*"://"* ]] && wget "$package" && if tar -xf "$package" -C "$tmpdir/$package"; then return 0; else echo -e "$p_error Failed to extract $package."; fi
-	[[ -f "$package" ]] && if tar -xf "$package" -C "$tmpdir/$package"; then return 0; else echo -e "$p_error Failed to extract $package."; fi
+	if [[ "$command" != "shoppe_upgrade" ]] && [[ "$package" == *".tar.gz" ]]; then
+		[[ "$package" = *"http"*"://"* ]] && wget "$package"
+		newpackage="$(basename ${package/\.tar\.gz})"
+		mkdir "$tmpdir/$newpackage"
+		if tar -xf "$package" -C "$tmpdir/$newpackage"; then
+			tocheck="${tocheck/$package/$newpackage}"
+			package="$newpackage"
+			return 0
+		else
+			echo -e "$p_error Failed to extract $package."
+			exit 1
+		fi
+	fi
+	[[ "$command" != "shoppe_upgrade" ]] && [[ -f "$package" ]] && [[ "$package" != *".tar.gz" ]] && grep "pkgname=" "$package" && echo "nobuild='false'" >> "$package" && mkdir "$tmpdir/$package" && cp "$package" "$tmpdir/$package/shoppepkg" && package="$(basename $package)" && return 0
+	[[ ! -e "$tmpdir/$package" ]] && mkdir "$tmpdir/$package"
 	while IFS="" read -r repo || [[ -n "$repo" ]]; do
 		let repoID++
 		if grep "^$package " "$configdir/repodata/$repoID" &>/dev/null; then
@@ -232,7 +247,7 @@ pkg_fetch_content() {
 	# Usage: package="packagetofetch" pkg_fetch_content
 	# Usage example: use in for loops
 	[[ "$forcebuild" == "true" ]] && return 0
-	[[ -f "$package" ]] && return 0 # already unpacked in pkg_fetch
+	[[ -e "$tmpdir/$package/content-$arch.tar.gz" ]] && return 0 # already unpacked in pkg_fetch
 	success="0"
 	case $repotofetch in
 		"local: "*) [[ -e "${repotofetch/local\:\ /}/$package/content-$arch.tar.gz" ]] && cp "${repotofetch/local\:\ /}/$package/content-$arch.tar.gz" "$tmpdir/$package/" && success='1';;
@@ -270,8 +285,28 @@ pkg_install() {
 		cd "$tmpdir/$package"
 	else
 		contentchecksumvar="content_${arch}_checksum"
+		mkdir "$tmpdir/$package/content"
 		# shellcheck disable=SC2154
-		[[ "$nobuild" == "true" ]] && [[ "$(sha512sum content-$arch.tar.gz)" == "${!contentchecksumvar}" ]] && tar -xzf content-$arch.tar.gz -C content && echo -e "$p_info Successfully extracted package."
+		if [[ "$(sha512sum content-$arch.tar.gz)" == "${!contentchecksumvar}" ]]; then
+			if ! tar -xzf content-$arch.tar.gz -C "$tmpdir/$package/content"; then
+				echo -e "$p_error Failed to extract $package."
+				exit 1
+			fi
+		else
+			echo -e "$p_warn Package checksum (${!contentchecksumvar}) does not match the content tarball's checksum ($(sha512sum content-$arch.tar.gz))."
+			yesnotxt="Install anyways (not reccomended)?" yesno n
+			if [[ "$choice" == "yes" ]]; then
+				if tar -xzf content-$arch.tar.gz -C "$tmpdir/$package/content"; then
+					echo -e "$p_info Successfully extracted package."
+				else
+					echo -e "$p_error Failed to extract $package."
+					exit 1
+				fi
+			else
+				echo -e "$p_error Failed to install $package."
+				exit 1
+			fi
+		fi
 	fi
 	! cd content && echo -e "$p_error Failed to install $package." && exit 1
 	! $suauth cp -rf . / && echo -e "$p_error Failed to install $package." && exit 1
@@ -287,19 +322,20 @@ pkg_install() {
 	done
 	shopt -u globstar
 	type -t shoppepkg_postinstall &>/dev/null && echo -e "  - $p_info Running post-install..." && ! shoppepkg_postinstall && echo -e "$p_warn Post-install script failed, but package's files were already copied! It is reccomended to reinstall the package, and if that doesn't help, contact the package's maintainer."
-	if grep "^$package " "$pkglist"; then
+	if grep "^$package " "$pkglist" &>/dev/null; then
 		sed "/^$package\ /d" "$pkglist" > "${pkglist}-tmp"
 		mv "${pkglist}-tmp" "$pkglist"
 	fi
 	# shellcheck disable=SC2154
 	echo "$package $pkgrel $pkgver" >> "$pkglist"
 	# shellcheck disable=SC2154
-	if grep "^$package " "$deplist"; then
+	if grep "^$package " "$deplist" &>/dev/null; then
 		sed "/^$package\ /d" "$deplist" > "${deplist}-tmp"
 		mv "${deplist}-tmp" "$deplist"
 	fi
 	[[ "$depends" ]] && echo "$depends " >> "$pkginfo/$package/dependencies" && for dep in $depends; do echo "$dep " >> "$deplist"; done
-	[[ "$nobuild" == "false" ]] && [[ "$makedepends" ]] && echo "$makedepends " >> "$pkginfo/$package/dependencies" && for dep in $makedepends; do echo "$dep" >> "$deplist"; done
+	[[ "$nobuild" == "false" ]] && [[ "$makedepends" ]] && echo "$makedepends " >> "$pkginfo/$package/dependencies" && for dep in $makedepends; do echo "$dep " >> "$deplist"; done
+	return 0
 }
 
 pkg_remove() {
@@ -315,7 +351,7 @@ pkg_remove() {
 ## Frontend
 
 # Supported package managers:
-availablePM="pkg apt apt-get dnf yum yay yaourt pacaur pacman zypper apk eopkg"
+availablePM="pkg zypper apt apt-get dnf yum yay yaourt pacaur pacman apk eopkg"
 
 # shellcheck disable=SC2086
 apt_query() {
@@ -386,13 +422,13 @@ frontend_init() {
 			frontend_listall="$pm -Q"
 			frontend_noconfirm="--noconfirm"
 			;;
-		zypper) # zypper (SLES, openSUSE-based)
+		zypper) # zypper (openSUSE-based)
 			frontend_install="$suauth $pm install"
 			frontend_remove="$suauth $pm remove"
 			frontend_update="$suauth dnf clean expire-cache && $suauth dnf check-update"
 			frontend_upgrade="$suauth $pm update"
 			frontend_query="$pm info"
-			frontend_listall="rpm -qa | sed -i 's/\:/\ 0\ /g'"
+			frontend_listall="rpm -qa --qf '%{NAME}\n'"
 			frontend_noconfirm="--non-interactive"
 			;;
 		apk) # apk (Alpine Linux, postmarketOS)
@@ -413,9 +449,16 @@ frontend_init() {
 			;;
 	esac
 	if [[ "$noconfirm" == "true" ]] && [[ "$frontend_noconfirm" ]]; then
-		frontend_install="$frontend_install $frontend_noconfirm"
-		frontend_remove="$frontend_remove $frontend_noconfirm"
-		frontend_upgrade="$frontend_upgrade $frontend_noconfirm"
+		if [[ "$pm" == "zypper" ]]; then
+			# Zypper requires --non-interactive to be placed before the main command.
+			frontend_install="$suauth $pm $frontend_noconfirm install"
+			frontend_remove="$suauth $pm $frontend_noconfirm remove"
+			frontend_upgrade="$suauth $pm $frontend_noconfirm upgrade"
+		else
+			frontend_install="$frontend_install $frontend_noconfirm"
+			frontend_remove="$frontend_remove $frontend_noconfirm"
+			frontend_upgrade="$frontend_upgrade $frontend_noconfirm"
+		fi
 	fi
 }
 
@@ -423,7 +466,7 @@ frontend_harvest() {
 	# This function harvests data from the available frontend.
 	# Usage: frontend_harvest
 	[[ -z "$pm" ]] && return 0
-	$frontend_listall >> "$pkglist.frontend"
+	$frontend_listall > "$pkglist.frontend"
 }
 ## Main functions
 
@@ -432,7 +475,7 @@ shoppe_install() {
 	# Usage: installs packages specified in the $packages variable.
 	echo -e "$p_info Searching on shoppe repositories..."
 	rm -rf "$tmpdir"
-	mkdir "$tmpdir"
+	mkdir -p "$tmpdir"
 	[[ -z "$packages" ]] && echo -e "$p_error Nothing to install!" && exit 1
 	[[ ! -e "$configdir/repodata/1" ]] && echo -e "$p_warn No repositories fetched. Running update..." && shoppe_update
 #	totalrepos="$(find $configdir/repodata -mindepth 1 -type f | wc -l)" # total amount of repositories
@@ -448,8 +491,8 @@ shoppe_install() {
 			success="0"
 			[[ "$pm" ]] && $frontend_query ^$package$ &>/dev/null && tofrontend="$tofrontend $package" && tocheck="${tocheck/$package/}" && continue
 			pkg_fetch
-			source "$tmpdir/$package/shoppepkg"
-			[[ "$package" = *"-git" ]] && echo -e "$p_info $package will be built manually." && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg" && nobuild=false
+			source "$tmpdir/$package/shoppepkg" &>/dev/null
+			[[ "$package" == *"-git" ]] && [[ "$forcebuild" != "true" ]] && [[ "$nobuild" != "true" ]] && echo -e "$p_info $package will be built manually." && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg" && nobuild=false
 			#if [[ "$force" != "true" ]] && grep "^$package $pkgrel $pkgver" "$pkglist" &>/dev/null; then; fi
 			if [[ "$force" != "true" ]] && [[ "$current_uptodate" == "true" ]]; then
 				if grep "^$package " "$deplist" &>/dev/null; then
@@ -487,10 +530,15 @@ shoppe_install() {
 		[[ "$packagemake" != "true" ]] && [[ "$nobuild" != "false" ]] && ! pkg_fetch_content && echo -e "$p_warn No prebuilt files found. This is most likely an issue with the package. If you're a package maintainer, use the +pm switch while building, and extract the resulting content-$arch.tar.gz from the package. If you don't want the package to have prebuilt files, add 'nobuild=false' to the shoppepkg, or in case of building from a git repository rather than a static release, add -git to the end of your package name. shoppe will now attempt to install the package, however makedepends were not installed, so this is likely going to fail." && nobuild="false" && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg"
 		echo -e "$p_info Installing $package..."
 		let currentpkg++
-		pkg_install
+		! pkg_install && echo -e "$p_error Failed to install package." && exit 1
 		if [[ "$packagemake" == "true" ]]; then
-			tar -czf content-$arch.tar.gz content
-			echo "content_${arch}_checksum=$(sha512sum content-$arch.tar.gz)" >> "$tmpdir/$package/shoppepkg"
+			cd "$tmpdir/$package/content"
+			tar -czf content-$arch.tar.gz .
+			sed "/content\_${arch}\_checksum/d" "$tmpdir/$package/shoppepkg" > "$tmpdir/$package/shoppepkg.tmp"
+			[[ "$pkgrel" != "rolling" ]] && sed "/pkgrel/d" "$tmpdir/$package/shoppepkg" > "$tmpdir/$package/shoppepkg.tmp"
+			mv "$tmpdir/$package/shoppepkg.tmp" "$tmpdir/$package/shoppepkg"
+			echo "content_${arch}_checksum='$(sha512sum content-$arch.tar.gz)'" >> "$tmpdir/$package/shoppepkg"
+			[[ "$pkgrel" != "rolling" ]] && echo "pkgrel='$pkgrel'" >> "$tmpdir/$package/shoppepkg"
 			mkdir "$tmpdir/$package/topackage"
 			mv content-$arch.tar.gz "$tmpdir/$package/topackage"
 			mv "$tmpdir/$package/shoppepkg" "$tmpdir/$package/topackage"
@@ -498,6 +546,8 @@ shoppe_install() {
 			echo -e "$p_debug Package created. Path: $HOME/$package.tar.gz"
 		fi
 	done
+	echo -e "$p_success Installation succeeded."
+	exit 0
 }
 
 # Remove packages.
@@ -508,7 +558,7 @@ shoppe_remove() {
 		for package in $tocheck; do
 			unset currentfrontend
 			if [[ "$pm" ]]; then
-				! grep "^$package " "$pkglist" &>/dev/null && ! grep "^$package " "$pkglist.frontend" && echo -e "$p_info Package $package is not installed, skipping..." && tocheck="${tocheck/$package/}" && continue
+				! grep "^$package " "$pkglist" &>/dev/null && ! grep "^$package " "$pkglist.frontend" &>/dev/null && echo -e "$p_info Package $package is not installed, skipping..." && tocheck="${tocheck/$package/}" && continue
 			else
 				! grep "^$package " "$pkglist" &>/dev/null && echo -e "$p_info Package $package is not installed, skipping..." && tocheck="${tocheck/$package/}" && continue
 			fi
@@ -517,7 +567,7 @@ shoppe_remove() {
 			# - is a dependency to another package
 			# it will be skipped, unless the user provides the --force switch.
 			if [[ "$force" != "true" ]]; then
-				grep "^$package " "$deplist" && tocheck="${tocheck/$package/}" && continue
+				grep "^$package " "$deplist" &>/dev/null && tocheck="${tocheck/$package/}" && continue
 				for dir in "$pkginfo"/*; do
 					if [[ "$(basename $(dirname $dir))" != "$package" ]] && [[ -e "$dir/dependencies" ]] && grep "^$package " "$dir/dependencies" &>/dev/null; then
 						tocheck="${tocheck/$package/}"
@@ -528,7 +578,7 @@ shoppe_remove() {
 				[[ "$cont" == "true" ]] && continue
 			fi
 			grep "^$package " "$deplist" &>/dev/null && tocheck="${tocheck/$package/}" && continue
-			grep "^$package " "$pkglist.frontend" && tofrontend="$tofrontend $package" && currentfrontend="true"
+			grep "^$package " "$pkglist.frontend" &>/dev/null && tofrontend="$tofrontend $package" && currentfrontend="true"
 			tocheck="${tocheck/$package/}"
 			# shellcheck disable=SC2086
 			[[ "$currentfrontend" != "true" ]] && tocheck="$tocheck $(cat $pkginfo/$package/dependencies | tr '\n' ' ')" && toremove="$package"
@@ -544,8 +594,10 @@ shoppe_remove() {
 	[[ "$tofrontend" ]] && echo -e "$p_info Removing packages via frontend..." && if $frontend_remove $tofrontend; then frontend_harvest; else echo -e "$p_error Failed to remove." && exit 1; fi
 	for package in $toremove; do
 		echo -e "$p_info Removing $package..."
-		pkg_remove
+		! pkg_remove && echo -e "$p_error Failed to remove $package." && exit 1
 	done
+	echo -e "$p_success Removal succeeded."
+	exit 0
 }
 
 # Update repository info.
@@ -565,10 +617,12 @@ shoppe_update() {
 				"local: "*) cp "${line/local\:\ /}/pkglist" "$configdir/repodata/$repoID" && echo "$line" > "$configdir/repodata/tmp" && cat "$configdir/repodata/$repoID" >> "$configdir/repodata/tmp" && mv "$configdir/repodata/tmp" "$configdir/repodata/$repoID" && success="1" && echo -e "$p_info $repoID is $line";;
 				"http: "*) wget -q "${line/http\:\ /}/pkglist" -O "$configdir/repodata/$repoID" && echo "$line" > "$configdir/repodata/tmp" && cat "$configdir/repodata/$repoID" >> "$configdir/repodata/tmp" && mv "$configdir/repodata/tmp" "$configdir/repodata/$repoID" &&  success="1" && echo -e "$p_debug $repoID is $line";;
 			esac
-			[[ "$success" == "0" ]] && let repoID-- && echo -e "$p_warn Failed to fetch repository: $line"
+			[[ "$success" == "0" ]] && let repoID-- && echo -e "$p_error Failed to fetch repository: $line" && exit 1
 		fi
 	done < "$repolist"
 	[[ "$repoID" == "0" ]] && echo -e "$p_error No repositories were fetched." && exit 1
+	echo -e "$p_success Update succeeded."
+	# shoppe_update is often called in functions, so this has to be return and not exit:
 	return 0
 }
 
@@ -576,7 +630,7 @@ shoppe_update() {
 shoppe_upgrade() {
 	shoppe_update
 	rm -rf "$tmpdir"
-	mkdir "$tmpdir"
+	mkdir -p "$tmpdir"
 	while IFS="" read -r line || [[ -n "$line" ]]; do
 		# shellcheck disable=SC2086
 		package="$(echo $line | awk '{print $1;}')"
@@ -595,9 +649,11 @@ shoppe_upgrade() {
 		echo -e "$p_info Fetching prebuilt files..."
 		pkg_fetch_content
 		echo -e "$p_info Upgrading $package..."
-		! pkg_remove && echo -e "$p_error Failed to upgrade $package." && exit 1
+		#! pkg_remove && echo -e "$p_error Failed to upgrade $package." && exit 1
 		! pkg_install && echo -e "$p_error Failed to upgrade $package." && exit 1
 	done
+	echo -e "$p_success Upgrade succeeded."
+	exit 0
 }
 
 # shellcheck disable=SC2154,SC2086
@@ -628,6 +684,21 @@ shoppe_fetch() {
 	# Usage: packages="<packages>" shoppe_fetch
 	# Using this in shoppe code is not recommended. Please use fetch <package> instead.
 	for package in $packages; do pkg_fetch "$package"; done
+	echo -e "$p_success Fetch finished."
+	exit 0
+}
+
+shoppe_addrepo() {
+	for repo in $packages; do
+		if [[ "$repo" == "http"*"://"* ]]; then
+			echo "http: $repo" >> "$repolist"
+		elif [[ -d "$repo" ]]; then
+			echo "local: $repo" >> "$repolist"
+		else
+			echo -e "$p_error Failed to add repository $repo."
+		fi
+	done
+	echo -e "$p_success Repositories added."
 }
 
 ## Option parsing
@@ -640,6 +711,7 @@ case $1 in
 		'fetch') command="shoppe_fetch";;
 		'info') command="shoppe_info";;
 		'listall') command="shoppe_listall";;
+		'addrepo') command="shoppe_addrepo";;
 		'help'|'--help'|'-h'|'+help'|'+h') shoppe_help;;
 		'--version'|'-v'|'version') echo "shoppe $version"; exit 0;;
 		*) echo -e "$p_error Invalid command: $1. Use 'shoppe help' for information about available commands."; exit 1;;

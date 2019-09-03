@@ -14,3 +14,10 @@ Use ``shoppe help`` to display all available commands and switches.
 
 You can find more documentation in the ``/usr/share/doc/shoppe`` folder, or browse the docs folder in this repository.
 
+## Documentation
+
+- [Packages](packages.md)
+- [Repositories](repositories.md)
+- [Frontend](frontend.md)
+  - [Frontend support](frontend-support.md)
+- [Configuration](configuration.md)

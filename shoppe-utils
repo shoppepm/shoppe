@@ -1,0 +1,309 @@
+#!/usr/bin/env bash
+#
+# shoppe-utils - additional utilities, mainly for package/repo maintainers
+version="1.1.0"
+# Licensed under the MIT license
+#
+## Code guidelines
+# Comments for sections will use double hash symbols.
+# Single comments will use single hash symbols.
+# Use if statements for longer commands and things that require if;else statements.
+# For small statements (usually under 3 longer commands) use [[ statement ]] && command1 && command2
+# Do not leave empty lines after comments, unless the comments are important in some way.
+
+### BEGIN CODE ###
+
+## Architecture detection.
+arch="$(uname -m)"
+# Some architectures are mostly the same, and major package managers
+# will consider them as the same architecture, so we follow suit.
+[[ "$arch" = "i"*"86" ]] && arch="i386"
+
+## Prefixes
+# These are used to prefix command output.
+p_info="\033[34m::\033[0m"
+p_warn="\033[33m!!\033[0m"
+p_error="\033[31m!!\033[0m"
+p_debug="\033[35m~!\033[0m"
+
+## Directories
+tmpdir="/tmp/shoppe"
+
+## Helper functions
+pkg_cleanup() {
+    # This function cleans up after a shoppe package.
+    # Use this when you're running a loop that sources multiple shoppepkgs.
+    # Usage: pkg_cleanup
+    unset pkgname pkgdesc pkgarch pkgver revision license url depends optional makedepends conflicts archdependent source sourcetype tag
+    unset -f shoppepkg_preinstall shoppepkg_build shoppepkg_postinstall
+    unset nobuild current_uptodate
+}
+
+sudosu() {
+    # Run commands with su root -c 'commands'
+    su root -c "$*"
+}
+
+auth_init() {
+    # This function is used to figure out what authentication methods are available.
+    # This is used to replace sudo, as it is not present on all systems and is not required when the user is already root.
+    # Usage: auth_init
+    # Using authentication: $suauth commands
+    [[ "$EUID" -eq 0 ]] && return 0 # User is running as root, no authentication is required.
+    command -v "sudo" &>/dev/null && suauth="sudo" && return 0 # sudo is available
+    command -v "su" &>/dev/null && suauth="sudosu" && return 0
+    echo -e "$p_error No authentication methods found! If you have a sudo alternative, add it to the auth_init command and make a pull request." && exit 1
+}
+
+yesno() {
+    case $1 in
+        y|Y) yesnochoice="[Y/n]";;
+        n|N) yesnochoice="[y/N]";;
+        *) echo -e "$p_debug yesno function called without a default choice! This will break with noconfirm. Please use yesno <defaultchoice> where defaultchoice is y or n.";;
+    esac
+    if [[ "$noconfirm" == "true" ]]; then
+        echo "$yesnotxt $yesnochoice $1"
+        choice="$1"
+    else
+        read -p "$yesnotxt $yesnochoice " -re choice
+    fi
+	[[ -z "$choice" ]] && choice="$1"
+    if [[ "$choice" == "Y" || "$choice" == "y" ]]; then choice="yes"; else choice="no"; fi
+}
+
+## Main functions
+
+utils_help() { echo -e "\
+Usage: $0 subset command [options]
+
+shoppe-utils offers additional utilities which are useful for package
+creation, repository creation and miscelaneous tasks.
+
+These utilities are divided into subsets: pkg, repo and tools.
+
+More documentation is available at /usr/share/doc/shoppe.
+
+Commands:
+
+	pkg:
+		pkg create [target file]
+			Asks you a few questions and creates a basic shoppepkg file,
+			which can then be built using 'shoppe install <pkgname> +pm'.
+			If no target file is provided, the package will be saved
+			in the current directory as shoppepkg. You can also provide
+			multiple target files to create multiple packages.
+
+		pkg validate <file>
+			Takes a shoppepkg file or full package (built with 'shoppe
+			install <pkgname> +pm'). Reports any errors found in the
+			shoppepkg file.
+
+	repo:
+		repo restock <repository directory>
+			Updates the package list in a repository.
+
+		repo addpkg <package> <repository directory>
+			Adds a full prebuilt package to a repository. Only takes one
+			package. If no repository directory is provided, the package
+			will be extracted in the current directory.
+
+	tools:
+		tools clearconfig
+			Removes all shoppe configuration files.
+
+Options:
+
+    +nc, +noconfirm, --noconfirm, -y
+        Automatically answers all prompts.
+
+    +force, +f, --force, -f
+        Forces certain commands.
+
+    +h, +help, -h, --help
+        Displays a short summary of available commands.
+
+"
+	exit 0
+}
+
+## pkg
+utils_pkg_create() {
+	[[ -z "$packages" ]] && packages="$PWD/shoppepkg"
+	for tocreate in $packages; do
+		pkg_cleanup
+		[[ -d "$tocreate" ]] && tocreate="$tocreate/shoppepkg"
+		[[ ! -e "$(dirname $tocreate)" ]] && mkdir -p "$(dirname $tocreate)"
+		read -p "Package name: " -re pkgname
+		read -p "Package description (do not end it with a dot): " -re pkgdesc
+		read -p "Version: " -re pkgver
+		read -p "Project website (optional): " -re url
+		read -p "Project license (optional): " -re license
+		read -p "What architectures does this app run on? If it runs on all architectures, use 'all'. Separate the architectures with spaces. See docs/architectures.md for more info. " -re pkgarch
+		read -p "What packages does this app depend on (separated by spaces)? If none, leave empty. " -re depends
+		read -p "What packages does this app require for building (separated by spaces)? If none, leave empty. " -re makedepends
+		read -p "What packages does this app conflict with (separated by spaces)? If none, leave empty. " -re conflicts
+		for variable in pkgname pkgdesc pkgver pkgarch; do
+			[[ -z "${!variable}" ]] && echo -e "$p_error Missing variable: $variable" && exit 1
+		done
+		echo -e "\
+# shoppe package for $pkgname
+# generated using shoppe-utils from shoppe $version
+pkgname=\"$pkgname\"
+pkgdesc=\"$pkgdesc\"
+pkgarch=\"$pkgarch\"
+pkgver=\"$pkgver\"
+pkgrel=\"0\"
+" > "$tocreate"
+		for variable in url license depends makedepends conflicts; do
+			[[ "${!variable}" ]] && echo -e "$variable=\"${!variable}\"" >> "$tocreate"
+		done
+		echo -e "\
+# Add the source. See docs/packages.md for more information.
+# source="$url"
+# source-type="git"
+shoppepkg_build() {
+	# Add build commands here.
+}
+" >> "$tocreate"
+		echo -e "$p_info Saved $pkgname shoppepkg as $tocreate."
+		echo -e "$p_warn Remember to add the shoppepkg_build function and sources. "
+	done
+}
+
+utils_pkg_validate() {
+	[[ -z "$packages" ]] && echo -e "$p_error No packages for the check provided! See $0 help for more info." && exit 1
+	failure=0
+	success=0
+	for tocheck in $packages; do
+		pkg_cleanup
+		[[ "$tocheck" == *".tar.gz" ]] && rm -rf "$tmpdir" && mkdir -p "$tmpdir/package" && tar xzf "$tocheck" -C "$tmpdir/package"
+		if [[ "$tocheck" == *".tar.gz" ]]; then if [[ ! -e "$tmpdir/package/shoppepkg" ]]; then echo -e "$p_warn $tocheck does not contain a shoppepkg file."; let failure++; continue; else tocheck="$tmpdir/package/shoppepkg"; fi; fi
+		unset currentfail
+		if [[ ! -e "$tocheck" ]]; then echo -e "$p_error $tocheck doesn't exist!"; let failure++; continue; fi
+		command -v shellcheck &>/dev/null && echo -e "$p_info Shellcheck output for $tocheck:" && shellcheck -e SC2148 -e SC2034 "$tocheck"
+		source "$tocheck"
+		for variable in pkgname pkgdesc pkgver pkgarch source sourcetype; do
+			[[ -z "${!variable}" ]] && echo -e "$p_error Missing required variable: $variable" && currentfail='1'
+		done
+		[[ "$sourcetype" == "git-tag" ]] && [[ -z "$tag" ]] && echo -e "$p_error Source type is git-tag but no tag is provided!" && currentfail='1'
+		! type -t shoppepkg_build &>/dev/null && echo -e "$p_error shoppepkg_build function does not exist!" && currentfail=1
+		if [[ "$currentfail" == "1" ]]; then let failure++; else let success++; fi
+	done
+	if [[ "$failure" -gt "0" ]]; then
+		echo -e "$p_error $failure failed, $success succeeded"
+		exit 1
+	else
+		echo -e "$p_info $failure failed, $success succeeded"
+		exit 0
+	fi
+}
+
+## repo
+utils_repo_restock() {
+	[[ -z "$packages" ]] && packages="$PWD"
+	for torestock in $packages; do
+		[[ ! -d "$torestock" ]] && echo -e "$p_error $torestock is not a directory." && continue
+		[[ ! -e "$torestock/pkglist" ]] && yesnotxt="There is no pkglist in the $torestock directory. Create one?" yesno y && [[ "$choice" == "no" ]] && echo -e "$p_error Skipping $torestock." && continue
+		cd "$torestock"
+		[[ -e "pkglist" ]] && rm pkglist
+		for dir in *; do
+			[[ ! -d "$dir" ]] && continue
+			[[ ! -e "$dir/shoppepkg" ]] && continue
+			[[ -e "ignore" ]] && grep "^$(basename dir)" ignore &>/dev/null && continue
+			source $dir/shoppepkg
+			echo "$pkgname $pkgrel $pkgver" >> pkglist
+		done
+	done
+}
+
+utils_repo_addpkg() {
+	repo="$2"
+	[[ -z "$1" ]] && echo -e "$p_error No package to add!"
+	[[ -z "$2" ]] && repo="$PWD"
+	[[ ! -d "$repo" ]] && echo -e "$p_error The repository directory ($2) does not exist, or is not a directory." && exit 1
+	[[ -e "$tmpdir" ]] && rm -rf "$tmpdir"
+	pkgname="$(basename $1)"
+	pkgname="${pkgname/\.tar\.gz/}"
+	mkdir -p "$2/$pkgname"
+	if ! tar xzf "$1" -C "$2/$pkgname"; then echo -e "$p_error Failed to extract package."; exit 1; fi
+	echo -e "$p_info Added $pkgname to $2."
+	exit 0
+}
+
+## tools
+utils_tools_clearconfig() {
+	configdir="$HOME/.config/shoppe"
+	[[ -e "$configdir/config" ]] && source "$configdir/config"
+	rm -rf "$configdir"
+}
+
+## Option parsing
+[[ -z $1 ]] && echo -e "$p_error Nothing to do! Use '$0 help' for information about available commands." && exit 1
+case $1 in
+	'repo')  cmdset="repo";;
+	'pkg')   cmdset="pkg";;
+	'tools') cmdset="tools";;
+	'help'|'--help'|'-h'|'+h')  command="utils_help";;
+	'version'|'--version'|'-v'|'+v') echo "shoppe-utils $version"; exit 0;;
+	*) echo -e "$p_error Invalid command set: $1. Use '$0 help' for information about available commands." && exit 1;;
+esac
+[[ -z $2 ]] && [[ "$command" != "utils_help" ]] && echo -e "$p_error Nothing to do! Use '$0 help' for information about available commands." && exit 1
+if [[ "$cmdset" == "repo" ]]; then
+	case $2 in
+		'restock') command='utils_repo_restock';;
+		'addpkg')  command="utils_repo_addpkg";;
+		*) echo -e "$p_error Invalid command: $1 $2. Use '$0 help' for information about available commands." && exit 1;;
+
+	esac
+fi
+if [[ "$cmdset" == "pkg" ]]; then
+	case $2 in
+		'create')   command='utils_pkg_create';;
+		'validate') command='utils_pkg_validate';;
+#		'convert')  command='utils_pkg_convert';;
+		*) echo -e "$p_error Invalid command: $1 $2. Use '$0 help' for information about available commands." && exit 1;;
+	esac
+fi
+if [[ "$cmdset" == "tools" ]]; then
+	case $2 in
+		'clearconfig') command='utils_tools_clearconfig';;
+		*) echo -e "$p_error Invalid command: $1 $2. Use '$0 help' for information about available commands." && exit 1;;
+	esac
+fi
+for parse in $*; do
+	let currentcmd++
+	if [[ "$currentcmd" -gt "2" ]]; then
+		case $parse in
+			-*) switches="$switches $parse";;
+			+*) shoppeswitches="$shoppeswitches $parse";;
+			*) packages="$packages $parse";;
+		esac
+	fi
+done
+command=$(echo "$command" | sed -e 's/^[ \t]*//')
+packages=$(echo "$packages" | sed -e 's/^[ \t]*//')
+switches=$(echo "$switches" | sed -e 's/^[ \t]*//')
+for switch in $shoppeswitches; do
+	case $switch in
+		"+noconfirm"|"+nc") noconfirm="true";;
+		"+f"|"+force") force="true";;
+		'+h'|'+help') shoppe_help;;
+		'+version'|'+v') echo "shoppe-utils $version"; exit 0;;
+	esac
+done
+for switch in $switches; do
+	case $switch in
+		--noconfirm|-y) noconfirm="true";;
+		--help|-h) shoppe_help;;
+		--force) force="true";;
+		'--version'|'-v') echo "shoppe-utils $version"; exit 0;;
+	esac
+done
+case $2 in
+	'help'|'--help'|'-h'|'+h') command="utils_help";;
+	'version'|'--version'|'-v'|'+v') echo "shoppe-utils $version"; exit 0;;
+esac
+auth_init
+if [[ "$command" == "utils_repo_addpkg" ]]; then $command $packages; else $command; fi
+exit 0
+
