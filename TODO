@@ -3,9 +3,9 @@
 ## shoppe
 
 - Implement optional dependencies
-- Move all "echo <Error> && exit 1" queries to a single function [1.1.0]
-  - Make --skip-errors skip all errors [1.1.0]
-- Handle '-' switches properly (get every letter)
+- Move all "echo <Error> && exit 1" queries to a single function [1.2.0]
+  - Make --skip-errors skip all errors [1.2.0]
+- Handle '-' switches properly (get every letter) [1.2.0]
 
 ## shoppe-utils
 
