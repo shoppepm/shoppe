@@ -23,11 +23,11 @@ arch="$(uname -m)"
 
 ## Prefixes
 # These are used to prefix command output.
-p_success="\033[32m||\033[0m"
-p_info="\033[34m::\033[0m"
-p_warn="\033[33m!!\033[0m"
-p_error="\033[31m!!\033[0m"
-p_debug="\033[35m~!\033[0m"
+p_success="\033[32;1m||\033[0m"
+p_info="\033[34;1m::\033[0m"
+p_warn="\033[33;1m!!\033[0m"
+p_error="\033[31;1m!!\033[0m"
+p_debug="\033[35;1m~!\033[0m"
 
 ## Configuration. This is overwritten by the main config file ($configdir/config)
 configdir="$HOME/.config/shoppe"
@@ -47,7 +47,7 @@ force="false"
 [[ ! -e "$repolist" ]] && echo "http: https://raw.githubusercontent.com/shoppepm/shoppe-repos/master" > "$repolist"
 [[ ! -e "$pkglist.frontend" ]] && touch "$pkglist.frontend"
 [[ ! -e "$pkglist" ]] && echo "shoppe 0 $version" > "$pkglist"
-[[ -s "$pkglist" ]] && echo "shoppe 0 $version" >> "$pkglist"
+! grep '^shoppe ' "$pkglist" &>/dev/null && echo "shoppe 0 $version" >> "$pkglist"
 
 ## Help (--help)
 shoppe_help() { echo "\
