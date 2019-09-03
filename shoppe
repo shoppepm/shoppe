@@ -473,7 +473,6 @@ frontend_harvest() {
 # Install packages.
 shoppe_install() {
 	# Usage: installs packages specified in the $packages variable.
-	echo -e "$p_info Searching on shoppe repositories..."
 	rm -rf "$tmpdir"
 	mkdir -p "$tmpdir"
 	[[ -z "$packages" ]] && echo -e "$p_error Nothing to install!" && exit 1
