@@ -47,7 +47,7 @@ force="false"
 [[ ! -e "$repolist" ]] && echo "http: https://raw.githubusercontent.com/shoppepm/shoppe-repos/master" > "$repolist"
 [[ ! -e "$pkglist.frontend" ]] && touch "$pkglist.frontend"
 [[ ! -e "$pkglist" ]] && echo "shoppe 0 $version" > "$pkglist"
-[[ -s "$pkglist" ]] && echo "shoppe 0 $version" > "$pkglist"
+[[ -s "$pkglist" ]] && echo "shoppe 0 $version" >> "$pkglist"
 
 ## Help (--help)
 shoppe_help() { echo "\
