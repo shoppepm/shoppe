@@ -23,6 +23,7 @@ arch="$(uname -m)"
 
 ## Prefixes
 # These are used to prefix command output.
+p_success="\033[32m::\033[0m"
 p_info="\033[34m::\033[0m"
 p_warn="\033[33m!!\033[0m"
 p_error="\033[31m!!\033[0m"
@@ -529,7 +530,7 @@ shoppe_install() {
 		[[ "$packagemake" != "true" ]] && [[ "$nobuild" != "false" ]] && ! pkg_fetch_content && echo -e "$p_warn No prebuilt files found. This is most likely an issue with the package. If you're a package maintainer, use the +pm switch while building, and extract the resulting content-$arch.tar.gz from the package. If you don't want the package to have prebuilt files, add 'nobuild=false' to the shoppepkg, or in case of building from a git repository rather than a static release, add -git to the end of your package name. shoppe will now attempt to install the package, however makedepends were not installed, so this is likely going to fail." && nobuild="false" && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg"
 		echo -e "$p_info Installing $package..."
 		let currentpkg++
-		pkg_install
+		! pkg_install && echo -e "$p_error Failed to install package." && exit 1
 		if [[ "$packagemake" == "true" ]]; then
 			cd "$tmpdir/$package/content"
 			tar -czf content-$arch.tar.gz .
@@ -545,6 +546,8 @@ shoppe_install() {
 			echo -e "$p_debug Package created. Path: $HOME/$package.tar.gz"
 		fi
 	done
+	echo -e "$p_success Installation succeeded."
+	exit 0
 }
 
 # Remove packages.
@@ -591,8 +594,10 @@ shoppe_remove() {
 	[[ "$tofrontend" ]] && echo -e "$p_info Removing packages via frontend..." && if $frontend_remove $tofrontend; then frontend_harvest; else echo -e "$p_error Failed to remove." && exit 1; fi
 	for package in $toremove; do
 		echo -e "$p_info Removing $package..."
-		pkg_remove
+		! pkg_remove && echo -e "$p_error Failed to remove $package." && exit 1
 	done
+	echo -e "$p_success Removal succeeded."
+	exit 0
 }
 
 # Update repository info.
@@ -616,6 +621,8 @@ shoppe_update() {
 		fi
 	done < "$repolist"
 	[[ "$repoID" == "0" ]] && echo -e "$p_error No repositories were fetched." && exit 1
+	echo -e "$p_success Update succeeded."
+	# shoppe_update is often called in functions, so this has to be return and not exit:
 	return 0
 }
 
@@ -645,6 +652,8 @@ shoppe_upgrade() {
 		#! pkg_remove && echo -e "$p_error Failed to upgrade $package." && exit 1
 		! pkg_install && echo -e "$p_error Failed to upgrade $package." && exit 1
 	done
+	echo -e "$p_success Upgrade succeeded."
+	exit 0
 }
 
 # shellcheck disable=SC2154,SC2086
@@ -675,16 +684,21 @@ shoppe_fetch() {
 	# Usage: packages="<packages>" shoppe_fetch
 	# Using this in shoppe code is not recommended. Please use fetch <package> instead.
 	for package in $packages; do pkg_fetch "$package"; done
+	echo -e "$p_success Fetch finished."
+	exit 0
 }
 
 shoppe_addrepo() {
 	for repo in $packages; do
 		if [[ "$repo" == "http"*"://"* ]]; then
 			echo "http: $repo" >> "$repolist"
-		else
+		elif [[ -d "$repo" ]]; then
 			echo "local: $repo" >> "$repolist"
+		else
+			echo -e "$p_error Failed to add repository $repo."
 		fi
 	done
+	echo -e "$p_success Repositories added."
 }
 
 ## Option parsing
