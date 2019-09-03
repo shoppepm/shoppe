@@ -23,7 +23,7 @@ arch="$(uname -m)"
 
 ## Prefixes
 # These are used to prefix command output.
-p_success="\033[32m::\033[0m"
+p_success="\033[32m||\033[0m"
 p_info="\033[34m::\033[0m"
 p_warn="\033[33m!!\033[0m"
 p_error="\033[31m!!\033[0m"
@@ -287,9 +287,7 @@ pkg_install() {
 		mkdir "$tmpdir/$package/content"
 		# shellcheck disable=SC2154
 		if [[ "$(sha512sum content-$arch.tar.gz)" == "${!contentchecksumvar}" ]]; then
-			if tar -xzf content-$arch.tar.gz -C "$tmpdir/$package/content"; then
-				echo -e "$p_info Successfully extracted package."
-			else
+			if ! tar -xzf content-$arch.tar.gz -C "$tmpdir/$package/content"; then
 				echo -e "$p_error Failed to extract $package."
 				exit 1
 			fi
@@ -336,6 +334,7 @@ pkg_install() {
 	fi
 	[[ "$depends" ]] && echo "$depends " >> "$pkginfo/$package/dependencies" && for dep in $depends; do echo "$dep " >> "$deplist"; done
 	[[ "$nobuild" == "false" ]] && [[ "$makedepends" ]] && echo "$makedepends " >> "$pkginfo/$package/dependencies" && for dep in $makedepends; do echo "$dep " >> "$deplist"; done
+	return 0
 }
 
 pkg_remove() {
