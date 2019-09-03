@@ -3,11 +3,14 @@
 ## shoppe
 
 - Implement optional dependencies
+- Add shoppe to installed packages every time the installed package list is empty [1.1.0]
+- Move all "echo <Error> && exit 1" queries to a single function [1.1.0]
+  - Make --force skip all errors [1.1.0]
 
 ## shoppe-utils
 
 - Add package conversion
 
-## meta
+## Meta
 
 - Clean up documentation
