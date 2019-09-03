@@ -184,7 +184,7 @@ pkg_fetch() {
 	success="0"
 	repoID=0
 	echo -e "$p_info Fetching package: $package"
-	if [[ "$package" == *".tar.gz" ]]; then
+	if [[ "$command" != "shoppe_upgrade" ]] && [[ "$package" == *".tar.gz" ]]; then
 		[[ "$package" = *"http"*"://"* ]] && wget "$package"
 		newpackage="$(basename ${package/\.tar\.gz})"
 		mkdir "$tmpdir/$newpackage"
@@ -197,7 +197,7 @@ pkg_fetch() {
 			exit 1
 		fi
 	fi
-	[[ -f "$package" ]] && [[ "$package" != *".tar.gz" ]] && grep "pkgname=" "$package" && echo "nobuild='false'" >> "$package" && mkdir "$tmpdir/$package" && cp "$package" "$tmpdir/$package/shoppepkg" && package="$(basename $package)" && return 0
+	[[ "$command" != "shoppe_upgrade" ]] && [[ -f "$package" ]] && [[ "$package" != *".tar.gz" ]] && grep "pkgname=" "$package" && echo "nobuild='false'" >> "$package" && mkdir "$tmpdir/$package" && cp "$package" "$tmpdir/$package/shoppepkg" && package="$(basename $package)" && return 0
 	[[ ! -e "$tmpdir/$package" ]] && mkdir "$tmpdir/$package"
 	while IFS="" read -r repo || [[ -n "$repo" ]]; do
 		let repoID++
