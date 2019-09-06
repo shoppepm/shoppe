@@ -155,7 +155,7 @@ yesno() {
 }
 fail() {
 	# Usage: fail <message>
-	echo "$p_error $*"
+	echo -e "$p_error $*"
 	if [[ "$skiperrors" == "true" ]]; then echo -e "$p_warn --skip-errors passed, skipping error."; else exit 1; fi
 }
 # shellcheck disable=SC2154
