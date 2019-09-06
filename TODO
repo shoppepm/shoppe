@@ -3,7 +3,6 @@
 ## shoppe
 
 - Implement optional dependencies
-- Handle '-' switches properly (get every letter) [1.2.0]
 
 ## shoppe-utils
 

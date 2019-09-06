@@ -741,6 +741,16 @@ for switch in $shoppeswitches; do
 	esac
 done
 for switch in $switches; do
+	if [[ "$switch" != "--"* ]] && [[ "${#switch}" != "2" ]]; then
+		switches="${switches/$switch/}"
+		switchcheck=$(echo "$switch" | sed -e 's/\(.\)/\1\ /g')
+		for toconvert in $switchcheck; do
+			[[ "$toconvert" != "-" ]] && switches="$switches -$toconvert"
+		done
+		switches=$(echo "$switches" | sed -e 's/^[ \t]*//')
+	fi
+done
+for switch in $switches; do
 	case $switch in
 		--skip-errors|-s) skiperrors="true";;
 		--noconfirm|-y) noconfirm="true";;
