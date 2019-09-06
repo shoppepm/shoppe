@@ -3,6 +3,7 @@
 ## shoppe
 
 - Implement optional dependencies [1.2.0]
+- Implement replaced-by behaviour [1.2.0]
 
 ## shoppe-utils
 
