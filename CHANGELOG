@@ -1,0 +1,17 @@
+## 1.1.0
+### NEW:
+- Added utilities
+  - These utilities currently allow users to create a new package, validate a package, add a package to a repository, update a repository's pkglist (restock) and clear the configuration
+
+### FEATURE/IMPROVEMENT:
+- Bump pkgrel every time the package is built (f4a8761a65d0a51f382c0dd1a2b8124e6d99e474)
+- Add better success prompts (4bde466929b9cd5d959310df7ee1c6c6c73b3ce7)
+- Add shoppe to installed packages every time the installed package list is empty (c4d324e29ffc249fa39e4ae3d278c3430a4d452c)
+
+### FIX:
+- Prevent fetch from looking for local files during upgrades (33cdeeaeea8535625a799cb618207f8ed9b5b238)
+- Fix checksums being saved to the shoppepkg without quotes around them (ae58e92a6d6866d6d14058a6b98d107b288c6fd9)
+- Make packagemake remove the old checksum from the shoppepkg file (f4a8761a65d0a51f382c0dd1a2b8124e6d99e474)
+  
+## 1.0.0
+- Initial release
