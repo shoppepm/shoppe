@@ -2,7 +2,7 @@
 # shellcheck disable=SC1090,SC2001,SC1091,SC2219
 ##
 ## shoppe - a portable package manager that integrates with your current package manager
-version="1.1.0"
+version="1.1.1"
 ##
 ## Licensed under the MIT License
 
@@ -38,6 +38,7 @@ pkginfo="$configdir/pkginfo"
 tmpdir="/tmp/shoppe"
 
 force="false"
+skiperrors="false"
 
 [[ ! -e "$HOME/.config" ]] && mkdir "$HOME/.config"
 [[ -e "$configdir/config" ]] && source "$configdir/config"
@@ -96,6 +97,9 @@ Commands:
 
 Options:
 
+	+se, +skiperrors, -s, --skip-errors
+		Do not exit during errors.
+
 	+nc, +noconfirm, --noconfirm, -y
 		Automatically answers all prompts.
 
@@ -132,7 +136,7 @@ auth_init() {
 	[[ "$EUID" -eq 0 ]] && return 0 # User is running as root, no authentication is required.
 	command -v "sudo" &>/dev/null && suauth="sudo" && return 0 # sudo is available
 	command -v "su" &>/dev/null && suauth="sudosu" && return 0
-	echo -e "$p_error No authentication methods found! If you have a sudo alternative, add it to the auth_init command and make a pull request." && exit 1
+	fail "No authentication methods found! If you have a sudo alternative, add it to the auth_init command and make a pull request."
 }
 
 yesno() {
@@ -149,7 +153,11 @@ yesno() {
 	fi
 	if [[ "$choice" == "Y" || "$choice" == "y" ]]; then choice="yes"; else choice="no"; fi
 }
-
+fail() {
+	# Usage: fail <message>
+	echo -e "$p_error $*"
+	if [[ "$skiperrors" == "true" ]]; then echo -e "$p_warn --skip-errors passed, skipping error."; else exit 1; fi
+}
 # shellcheck disable=SC2154
 get_source() {
 	# This is a function used to get the source from the source variable.
@@ -193,8 +201,7 @@ pkg_fetch() {
 			package="$newpackage"
 			return 0
 		else
-			echo -e "$p_error Failed to extract $package."
-			exit 1
+			fail "Failed to extract $package."
 		fi
 	fi
 	[[ "$command" != "shoppe_upgrade" ]] && [[ -f "$package" ]] && [[ "$package" != *".tar.gz" ]] && grep "pkgname=" "$package" && echo "nobuild='false'" >> "$package" && mkdir "$tmpdir/$package" && cp "$package" "$tmpdir/$package/shoppepkg" && package="$(basename $package)" && return 0
@@ -206,7 +213,7 @@ pkg_fetch() {
 		fi
 	done < "$repolist"
 	reposwithpkg=$(echo "$reposwithpkg" | sed -e 's/^[ \t]*//')
-	[[ -z "$reposwithpkg" ]] && echo -e "$p_error Could not find package $package. Check if your spelling is correct or add a repository that contains this package." && exit 1
+	[[ -z "$reposwithpkg" ]] && fail "Could not find package $package. Check if your spelling is correct or add a repository that contains this package."
 	bestline=$(grep "^$package " "$pkglist")
 	[[ -z "$bestline" ]] && bestline="$package 0 0"
 	originalline="$bestline"
@@ -274,24 +281,21 @@ pkg_install() {
 	# Usage: package="packagetoinstall" pkg_install
 	pkg_cleanup
 	nobuild="true"
-	! cd "$tmpdir/$package" && echo -e "$p_error Could not get into temporary directory for $package. Make sure that you didn't wipe your temporary directory during the install process and that you can write to the temporary directory (currently $tmpdir)." && exit 1
+	! cd "$tmpdir/$package" && fail "Could not get into temporary directory for $package. Make sure that you didn't wipe your temporary directory during the install process and that you can write to the temporary directory (currently $tmpdir)."
 	source shoppepkg
 	[[ "$forcebuild" == "true" ]] && nobuild="false"
 	# shellcheck disable=SC2154
 	[[ "$package" != "$pkgname" ]] && echo -e "$p_debug Package name and pkgname do not match (expected $package, got $pkgname). Please contact the package's maintainer."
 	type -t shoppepkg_preinstall &>/dev/null && echo -e "  - $p_info Running pre-install..." && shoppepkg_preinstall
 	if [[ "$nobuild" == "false" ]]; then
-		type -t shoppepkg_build &>/dev/null && echo -e "  - $p_info Building..." && ! shoppepkg_build && echo -e "$p_error Failed to build $package." && exit 1
+		type -t shoppepkg_build &>/dev/null && echo -e "  - $p_info Building..." && ! shoppepkg_build && fail "Failed to build $package."
 		cd "$tmpdir/$package"
 	else
 		contentchecksumvar="content_${arch}_checksum"
 		mkdir "$tmpdir/$package/content"
 		# shellcheck disable=SC2154
 		if [[ "$(sha512sum content-$arch.tar.gz)" == "${!contentchecksumvar}" ]]; then
-			if ! tar -xzf content-$arch.tar.gz -C "$tmpdir/$package/content"; then
-				echo -e "$p_error Failed to extract $package."
-				exit 1
-			fi
+			! tar -xzf content-$arch.tar.gz -C "$tmpdir/$package/content" && fail "Failed to extract $package."
 		else
 			echo -e "$p_warn Package checksum (${!contentchecksumvar}) does not match the content tarball's checksum ($(sha512sum content-$arch.tar.gz))."
 			yesnotxt="Install anyways (not reccomended)?" yesno n
@@ -299,17 +303,15 @@ pkg_install() {
 				if tar -xzf content-$arch.tar.gz -C "$tmpdir/$package/content"; then
 					echo -e "$p_info Successfully extracted package."
 				else
-					echo -e "$p_error Failed to extract $package."
-					exit 1
+					fail "Failed to extract $package."
 				fi
 			else
-				echo -e "$p_error Failed to install $package."
-				exit 1
+				fail "Failed to install $package."
 			fi
 		fi
 	fi
-	! cd content && echo -e "$p_error Failed to install $package." && exit 1
-	! $suauth cp -rf . / && echo -e "$p_error Failed to install $package." && exit 1
+	! cd content && fail "Failed to install $package."
+	! $suauth cp -rf . / && fail "Failed to install $package."
 	cd "$tmpdir/$package"
 	[[ -e "$pkginfo/$package" ]] && rm -rf "${pkginfo:?}/${package:?}"
 	mkdir "$pkginfo/$package"
@@ -342,7 +344,7 @@ pkg_remove() {
 	# This is an internal function used to remove packages.
 	# Usage: package="packagetoremove" pkg_remove
 	pkg_cleanup
-	! xargs $suauth rm -f < "$pkginfo/$package/content" && echo -e "$p_error Failed to remove $package." && exit 1
+	! xargs $suauth rm -f < "$pkginfo/$package/content" && fail "Failed to remove $package."
 	rm -rf "${pkginfo:?}/${package:?}"
 	sed "/^$package\ /d" "$pkglist" > "${pkglist}-tmp"
 	mv "${pkglist}-tmp" "$pkglist"
@@ -473,10 +475,9 @@ frontend_harvest() {
 # Install packages.
 shoppe_install() {
 	# Usage: installs packages specified in the $packages variable.
-	echo -e "$p_info Searching on shoppe repositories..."
 	rm -rf "$tmpdir"
 	mkdir -p "$tmpdir"
-	[[ -z "$packages" ]] && echo -e "$p_error Nothing to install!" && exit 1
+	[[ -z "$packages" ]] && fail "Nothing to install!"
 	[[ ! -e "$configdir/repodata/1" ]] && echo -e "$p_warn No repositories fetched. Running update..." && shoppe_update
 #	totalrepos="$(find $configdir/repodata -mindepth 1 -type f | wc -l)" # total amount of repositories
 	tocheck="$packages"
@@ -518,19 +519,19 @@ shoppe_install() {
 	done
 	toinstall="$(echo -e "${toinstall}" | sed -e 's/^[[:space:]]*//')"
 	tofrontend="$(echo -e "${tofrontend}" | sed -e 's/^[[:space:]]*//')"
-	[[ -z "$toinstall" ]] && [[ -z "$tofrontend" ]] && echo -e "$p_error Nothing to install!" && exit 1
+	[[ -z "$toinstall" ]] && [[ -z "$tofrontend" ]] && fail "Nothing to install!"
 	[[ "$toinstall" ]] && echo -e "  $p_info This will install the following packages:\n$toinstall"
 	[[ "$tofrontend" ]] && echo -e "  $p_info Using frontend for:\n$tofrontend"
 	yesnotxt="Continue?" yesno y
 	[[ "$choice" == "no" ]] && exit 1
 	# shellcheck disable=SC2086
-	[[ "$tofrontend" ]] && echo -e "$p_info Installing packages from frontend..." && if $frontend_install $tofrontend; then echo -e "$p_info Updating installed package list..." && frontend_harvest; else echo -e "$p_error Failed to install." && exit 1; fi
+	[[ "$tofrontend" ]] && echo -e "$p_info Installing packages from frontend..." && if $frontend_install $tofrontend; then echo -e "$p_info Updating installed package list..." && frontend_harvest; else fail "Failed to install."; fi
 	for package in $toinstall; do
 		echo -e "$p_info Fetching prebuilt files..."
 		[[ "$packagemake" != "true" ]] && [[ "$nobuild" != "false" ]] && ! pkg_fetch_content && echo -e "$p_warn No prebuilt files found. This is most likely an issue with the package. If you're a package maintainer, use the +pm switch while building, and extract the resulting content-$arch.tar.gz from the package. If you don't want the package to have prebuilt files, add 'nobuild=false' to the shoppepkg, or in case of building from a git repository rather than a static release, add -git to the end of your package name. shoppe will now attempt to install the package, however makedepends were not installed, so this is likely going to fail." && nobuild="false" && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg"
 		echo -e "$p_info Installing $package..."
 		let currentpkg++
-		! pkg_install && echo -e "$p_error Failed to install package." && exit 1
+		! pkg_install && fail "Failed to install package."
 		if [[ "$packagemake" == "true" ]]; then
 			cd "$tmpdir/$package/content"
 			tar -czf content-$arch.tar.gz .
@@ -552,7 +553,7 @@ shoppe_install() {
 
 # Remove packages.
 shoppe_remove() {
-	[[ -z "$packages" ]] && echo -e "$p_error Nothing to remove!" && exit 1
+	[[ -z "$packages" ]] && fail "Nothing to remove!"
 	tocheck="$packages"
 	until [[ -z "${tocheck// }" ]]; do
 		for package in $tocheck; do
@@ -584,17 +585,17 @@ shoppe_remove() {
 			[[ "$currentfrontend" != "true" ]] && tocheck="$tocheck $(cat $pkginfo/$package/dependencies | tr '\n' ' ')" && toremove="$package"
 		done
 	done
-	[[ -z "$toremove" ]] && [[ -z "$tofrontend" ]] && echo -e "$p_error Nothing to remove!" && exit 1
+	[[ -z "$toremove" ]] && [[ -z "$tofrontend" ]] && fail "Nothing to remove!"
 	echo -e "$p_info The following packages will be removed"
 	echo "$toremove"
 	[[ "$pm" ]] && [[ "$tofrontend" ]] && echo -e "$p_info Using frontend for:" && echo "$tofrontend"
 	yesnotxt="Continue?" yesno y
 	[[ "$choice" == "no" ]] && exit 1
 	# shellcheck disable=SC2086
-	[[ "$tofrontend" ]] && echo -e "$p_info Removing packages via frontend..." && if $frontend_remove $tofrontend; then frontend_harvest; else echo -e "$p_error Failed to remove." && exit 1; fi
+	[[ "$tofrontend" ]] && echo -e "$p_info Removing packages via frontend..." && if $frontend_remove $tofrontend; then frontend_harvest; else fail "Failed to remove."; fi
 	for package in $toremove; do
 		echo -e "$p_info Removing $package..."
-		! pkg_remove && echo -e "$p_error Failed to remove $package." && exit 1
+		! pkg_remove && fail "Failed to remove $package."
 	done
 	echo -e "$p_success Removal succeeded."
 	exit 0
@@ -617,10 +618,10 @@ shoppe_update() {
 				"local: "*) cp "${line/local\:\ /}/pkglist" "$configdir/repodata/$repoID" && echo "$line" > "$configdir/repodata/tmp" && cat "$configdir/repodata/$repoID" >> "$configdir/repodata/tmp" && mv "$configdir/repodata/tmp" "$configdir/repodata/$repoID" && success="1" && echo -e "$p_info $repoID is $line";;
 				"http: "*) wget -q "${line/http\:\ /}/pkglist" -O "$configdir/repodata/$repoID" && echo "$line" > "$configdir/repodata/tmp" && cat "$configdir/repodata/$repoID" >> "$configdir/repodata/tmp" && mv "$configdir/repodata/tmp" "$configdir/repodata/$repoID" &&  success="1" && echo -e "$p_debug $repoID is $line";;
 			esac
-			[[ "$success" == "0" ]] && let repoID-- && echo -e "$p_error Failed to fetch repository: $line" && exit 1
+			[[ "$success" == "0" ]] && let repoID-- && fail "Failed to fetch repository: $line"
 		fi
 	done < "$repolist"
-	[[ "$repoID" == "0" ]] && echo -e "$p_error No repositories were fetched." && exit 1
+	[[ "$repoID" == "0" ]] && fail "No repositories were fetched."
 	echo -e "$p_success Update succeeded."
 	# shoppe_update is often called in functions, so this has to be return and not exit:
 	return 0
@@ -649,8 +650,8 @@ shoppe_upgrade() {
 		echo -e "$p_info Fetching prebuilt files..."
 		pkg_fetch_content
 		echo -e "$p_info Upgrading $package..."
-		#! pkg_remove && echo -e "$p_error Failed to upgrade $package." && exit 1
-		! pkg_install && echo -e "$p_error Failed to upgrade $package." && exit 1
+		#! pkg_remove && fail "Failed to upgrade $package."
+		! pkg_install && fail "Failed to upgrade $package."
 	done
 	echo -e "$p_success Upgrade succeeded."
 	exit 0
@@ -658,10 +659,10 @@ shoppe_upgrade() {
 
 # shellcheck disable=SC2154,SC2086
 shoppe_info() {
-	[[ -z "$packages" ]] && echo -e "$p_error No packages to display!"
+	[[ -z "$packages" ]] && fail "No packages to display!"
 	for package in $packages; do
 		forcebuild="true"
-		! pkg_fetch && echo -e "$p_error Package $package does not exist!" && exit 1
+		! pkg_fetch && fail "Package $package does not exist!"
 		source "$tmpdir/$package/shoppepkg"
 		echo -e "$p_info Information about $package:"
 		grep "^$package " "$pkglist" &>"$tmpdir/pkgline" && echo -e "[Installed] ($(cat $tmpdir/pkgline))"
@@ -695,14 +696,14 @@ shoppe_addrepo() {
 		elif [[ -d "$repo" ]]; then
 			echo "local: $repo" >> "$repolist"
 		else
-			echo -e "$p_error Failed to add repository $repo."
+			fail "Failed to add repository $repo."
 		fi
 	done
 	echo -e "$p_success Repositories added."
 }
 
 ## Option parsing
-[[ -z $1 ]] && echo -e "$p_error Nothing to do! Use 'shoppe help' for information about available commands." && exit 1
+[[ -z $1 ]] && fail "Nothing to do! Use 'shoppe help' for information about available commands." && exit 1
 case $1 in
 		'install') command="shoppe_install";;
 		'remove') command="shoppe_remove";;
@@ -714,7 +715,7 @@ case $1 in
 		'addrepo') command="shoppe_addrepo";;
 		'help'|'--help'|'-h'|'+help'|'+h') shoppe_help;;
 		'--version'|'-v'|'version') echo "shoppe $version"; exit 0;;
-		*) echo -e "$p_error Invalid command: $1. Use 'shoppe help' for information about available commands."; exit 1;;
+		*) fail "Invalid command: $1. Use 'shoppe help' for information about available commands."; exit 1;;
 esac
 nocmd="${*/$1/}"
 for parse in $nocmd; do
@@ -730,6 +731,7 @@ switches=$(echo "$switches" | sed -e 's/^[ \t]*//')
 for switch in $shoppeswitches; do
 	case $switch in
 		"+skipfrontend"|"+sf") skipfrontend="true";;
+		"+skiperrors"|"+se") skiperrors="true";;
 		"+noconfirm"|"+nc") noconfirm="true";;
 		"+forcebuild"|"+fb") nobuild="false"; forcebuild="true";;
 		"+packagemake"|"+pm") packagemake="true"; nobuild="false"; forcebuild="true";;
@@ -739,7 +741,18 @@ for switch in $shoppeswitches; do
 	esac
 done
 for switch in $switches; do
+	if [[ "$switch" != "--"* ]] && [[ "${#switch}" != "2" ]]; then
+		switches="${switches/$switch/}"
+		switchcheck=$(echo "$switch" | sed -e 's/\(.\)/\1\ /g')
+		for toconvert in $switchcheck; do
+			[[ "$toconvert" != "-" ]] && switches="$switches -$toconvert"
+		done
+		switches=$(echo "$switches" | sed -e 's/^[ \t]*//')
+	fi
+done
+for switch in $switches; do
 	case $switch in
+		--skip-errors|-s) skiperrors="true";;
 		--noconfirm|-y) noconfirm="true";;
 		--help|-h) shoppe_help;;
 		--force) force="true";;

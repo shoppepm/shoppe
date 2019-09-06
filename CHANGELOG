@@ -1,0 +1,27 @@
+## 1.1.1
+### IMPROVEMENT/UX:
+
+- Removed misleading 'Searching on shoppe repositories' notice (fe5a35455ff7deb4af104e608a834cfeedf47a44)
+- Started handling single dash switches better (f806bb145e4cd0422239d2518537456706363ad6)
+
+### IMPROVEMENT/CODE:
+
+- Condensed 'echo '$p_error ERRORMSG' && exit 1' into a single function (fail) (f03a1716f9a7fd172a0dde5662d66e67cc23edac, 422d346df6dbda775a747ebf562e51cc00236d81)
+
+## 1.1.0
+### NEW:
+- Added utilities
+  - These utilities currently allow users to create a new package, validate a package, add a package to a repository, update a repository's pkglist (restock) and clear the configuration
+
+### FEATURE/IMPROVEMENT:
+- Bump pkgrel every time the package is built (f4a8761a65d0a51f382c0dd1a2b8124e6d99e474)
+- Add better success prompts (4bde466929b9cd5d959310df7ee1c6c6c73b3ce7)
+- Add shoppe to installed packages every time the installed package list is empty (c4d324e29ffc249fa39e4ae3d278c3430a4d452c)
+
+### FIX:
+- Prevent fetch from looking for local files during upgrades (33cdeeaeea8535625a799cb618207f8ed9b5b238)
+- Fix checksums being saved to the shoppepkg without quotes around them (ae58e92a6d6866d6d14058a6b98d107b288c6fd9)
+- Make packagemake remove the old checksum from the shoppepkg file (f4a8761a65d0a51f382c0dd1a2b8124e6d99e474)
+  
+## 1.0.0
+- Initial release

@@ -2,15 +2,9 @@
 
 ## shoppe
 
-- Implement optional dependencies
-- Move all "echo <Error> && exit 1" queries to a single function [1.2.0]
-  - Make --skip-errors skip all errors [1.2.0]
-- Handle '-' switches properly (get every letter) [1.2.0]
+- Implement optional dependencies [1.2.0]
+- Implement replaced-by behaviour [1.2.0]
 
 ## shoppe-utils
 
-- Add package conversion
-
-## Meta
-
-- Clean up documentation
+- Add package conversion [1.3.0? Not a priority yet]
