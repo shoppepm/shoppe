@@ -295,10 +295,10 @@ pkg_install() {
 		contentchecksumvar="content_${arch}_checksum"
 		mkdir "$tmpdir/$package/content"
 		# shellcheck disable=SC2154
-		if [[ "$(sha512sum content-$arch.tar.gz)" == "${!contentchecksumvar}" ]]; then
+		if [[ "$(sha512sum content-$arch.tar.gz | sed 's/\*/\ /g')" == "${!contentchecksumvar}" ]]; then
 			! tar -xzf content-$arch.tar.gz -C "$tmpdir/$package/content" && fail "Failed to extract $package."
 		else
-			echo -e "$p_warn Package checksum (${!contentchecksumvar}) does not match the content tarball's checksum ($(sha512sum content-$arch.tar.gz))."
+			echo -e "$p_warn Package checksum (${!contentchecksumvar}) does not match the content tarball's checksum ($(sha512sum content-$arch.tar.gz | sed 's/\*/\ /g'))."
 			yesnotxt="Install anyways (not reccomended)?" yesno n
 			if [[ "$choice" == "yes" ]]; then
 				if tar -xzf content-$arch.tar.gz -C "$tmpdir/$package/content"; then
