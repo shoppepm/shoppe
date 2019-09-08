@@ -494,6 +494,7 @@ shoppe_install() {
 			pkg_cleanup
 			success="0"
 			[[ "$pm" ]] && $frontend_query ^$package$ &>/dev/null && tofrontend="$tofrontend $package" && tocheck="${tocheck/$package/}" && continue
+			[[ -z "$pm" ]] && command -v "$package" &>/dev/null && echo -e "$p_info Package $package is already installed, skipping..." && tocheck="${tocheck/$package/}" && continue
 			pkg_fetch
 			source "$tmpdir/$package/shoppepkg" &>/dev/null
 			[[ "$package" == *"-git" ]] && [[ "$forcebuild" != "true" ]] && [[ "$nobuild" != "true" ]] && echo -e "$p_info $package will be built manually." && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg" && nobuild=false
