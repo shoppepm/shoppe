@@ -354,7 +354,7 @@ pkg_remove() {
 ## Frontend
 
 # Supported package managers:
-availablePM="pkg zypper apt apt-get dnf yum yay yaourt pacaur pacman apk eopkg"
+availablePM="pkg zypper apt apt-get dnf yum yay yaourt pacaur pacman apk eopkg nopmfound"
 
 # shellcheck disable=SC2086
 apt_query() {
@@ -380,6 +380,8 @@ frontend_init() {
 		command -v "$pm" &>/dev/null && break
 	done
 	case $pm in
+		nopmfound) # No package manager found
+			pm="";;
 		pkg) # pkg (Termux, Debian-based with custom frontend)
 			frontend_install="$pm install"
 			frontend_remove="$pm remove"
