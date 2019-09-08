@@ -134,6 +134,7 @@ auth_init() {
 	# Usage: auth_init
 	# Using authentication: $suauth commands
 	[[ "$EUID" -eq 0 ]] && return 0 # User is running as root, no authentication is required.
+	command -v "cygstart" &>/dev/null && suauth="cygstart --action=runas" && return 0 # cygwin is being used and cygstart is available
 	command -v "sudo" &>/dev/null && suauth="sudo" && return 0 # sudo is available
 	command -v "su" &>/dev/null && suauth="sudosu" && return 0
 	fail "No authentication methods found! If you have a sudo alternative, add it to the auth_init command and make a pull request."
