@@ -4,7 +4,6 @@
 
 - Implement optional dependencies [1.2.0]
 - Implement replaced-by behaviour [1.2.0]
-- Add better variables for package creators (contentdir, sourcedir, etc.) [1.2.0]
 - Add "hybrid" repository mode (shoppepkg files are stored locally, content files are downloaded) [1.2.0]
 - Add ability to save content to a separate directory and symlink it into main system folders (useful for embedded devices which don't have internal space but do have sd card space) [1.2.0]
 - Add ability to skip frontend only for packages which are being manually installed (in the packages variable) [1.2.0]

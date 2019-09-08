@@ -22,7 +22,7 @@ See the example shoppe package below for more information.
 
 Simply add it to a repository (see: [Repositories](repositories.md)), add the repository and install with the +pm switch, or use ``shoppe install /path/to/shoppepkg +pm``.
 
-## Example shoppe package
+## Example shoppe package (and all of the variables)
 
 ```bash
 # Basic information
@@ -50,9 +50,10 @@ sourcetype="git-tag" # Source type, defines how to get the source.
 tag="$version"
 
 # Building. This is required. This is where all build steps go (preparation, building, installing).
+# TIP: Use the $contentdir variable to refer to the content directory (where built files which would usually go to the root directory should be stored) and the $sourcedir variable to refer to the source directory (fetched by get_source).
 shoppepkg_build() {
 	get_source
-	cd source
+	cd $sourcedir
 	# Building commands go here...
 	cd ../
 }

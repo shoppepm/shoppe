@@ -282,11 +282,13 @@ pkg_install() {
 	# Usage: package="packagetoinstall" pkg_install
 	pkg_cleanup
 	nobuild="true"
-	! cd "$tmpdir/$package" && fail "Could not get into temporary directory for $package. Make sure that you didn't wipe your temporary directory during the install process and that you can write to the temporary directory (currently $tmpdir)."
+	cd "$tmpdir/$package" || fail "Could not get into temporary directory for $package. Make sure that you didn't wipe your temporary directory during the install process and that you can write to the temporary directory (currently $tmpdir)."
 	source shoppepkg
 	[[ "$forcebuild" == "true" ]] && nobuild="false"
 	# shellcheck disable=SC2154
 	[[ "$package" != "$pkgname" ]] && echo -e "$p_debug Package name and pkgname do not match (expected $package, got $pkgname). Please contact the package's maintainer."
+	contentdir="$tmpdir/$package/content"
+	sourcedir="$tmpdir/$package/source"
 	type -t shoppepkg_preinstall &>/dev/null && echo -e "  - $p_info Running pre-install..." && shoppepkg_preinstall
 	if [[ "$nobuild" == "false" ]]; then
 		type -t shoppepkg_build &>/dev/null && echo -e "  - $p_info Building..." && ! shoppepkg_build && fail "Failed to build $package."
