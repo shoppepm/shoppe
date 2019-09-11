@@ -159,10 +159,10 @@ fail() {
 	echo -e "$p_error $*"
 	if [[ "$skiperrors" == "true" ]]; then echo -e "$p_warn --skip-errors passed, skipping error."; else exit 1; fi
 }
-wget --show-progress &>"$tmpdir/wgettest" && grep "unrecognized option" "$tmpdir/wgettest" && noshowprogress="true"
+wget --show-progress &> "$tmpdir/wgettest" && grep "unrecognized option" "$tmpdir/wgettest" && noshowprogress="true"
 httpfetch() {
 	# This is a frontend for wget, and might support curl in the future as well.
-	[[ "$noshowprogress" != "true" ]] && wget -q --progress=bar:force --show-progress $*
+	if [[ "$noshowprogress" == "true" ]]; then wget -q $*; else wget -q --progress=bar:force --show-progress $*; fi
 }
 # shellcheck disable=SC2154
 get_source() {
