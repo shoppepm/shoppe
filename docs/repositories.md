@@ -35,6 +35,7 @@ repotype: repopath
 Available repository types:
 
 - local (repopath is a local path on the computer)
-- http (repopath is a web server)
+- http ('Hybrid' repository (local shoppepkg, remote content.tar.gz); repopath is a http address)
+- http-full (Old http behavior (shoppepkg and content.tar.gz are both remote); repopath is a http address)
 
 The space between the path and the ``:`` character is required.
