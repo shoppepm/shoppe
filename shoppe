@@ -242,7 +242,8 @@ pkg_fetch() {
 	# shellcheck disable=SC2086
 	repotofetch="$(head -n1 $configdir/repodata/$repo)"
 	case $repotofetch in
-		"local: "*|"http: "*) cp "${repotofetch/local\:\ /}/$package/shoppepkg" "$tmpdir/$package/" && success="1" && [[ "$forcebuild" == "true" ]] && [[ "$packagemake" != "true" ]] && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg";;
+		"local: "*) cp "${repotofetch/local\:\ /}/$package/shoppepkg" "$tmpdir/$package/" && success="1" && [[ "$forcebuild" == "true" ]] && [[ "$packagemake" != "true" ]] && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg";;
+		"http: "*) cp "$configdir/repofiles/$repo/$package/shoppepkg" "$tmpdir/$package/" && success="1" && [[ "$forcebuild" == "true" ]] && [[ "$packagemake" != "true" ]] && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg";;
 		"http-full: "*) httpfetch -q "${repotofetch/http\-full\:\ /}/$package/shoppepkg" -O "$tmpdir/$package/shoppepkg" && success="1" && [[ "$forcebuild" == "true" ]] && [[ "$packagemake" != "true" ]] && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg";;
 		*) echo -e "$p_debug Repo data file for id $repo does not contain repository path! Have you been tampering with the file? Run shoppe update to fix this.";;
 	esac
