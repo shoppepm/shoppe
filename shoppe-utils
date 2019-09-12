@@ -141,6 +141,7 @@ utils_pkg_create() {
 		read -p "What architectures does this app run on? If it runs on all architectures, use 'all'. Separate the architectures with spaces. See docs/architectures.md for more info. " -re pkgarch
 		read -p "What packages does this app depend on (separated by spaces)? If none, leave empty. " -re depends
 		read -p "What packages does this app require for building (separated by spaces)? If none, leave empty. " -re makedepends
+		read -p "Does this package provide the same functionality as other packages? If so, add them here (separated by spaces). If none, leave empty. NOTE: When you add a package to this variable, you no longer have to include it in conflicts. " -re provides
 		read -p "What packages does this app conflict with (separated by spaces)? If none, leave empty. " -re conflicts
 		for variable in pkgname pkgdesc pkgver pkgarch; do
 			[[ -z "${!variable}" ]] && echo -e "$p_error Missing variable: $variable" && exit 1
@@ -154,7 +155,7 @@ pkgarch=\"$pkgarch\"
 pkgver=\"$pkgver\"
 pkgrel=\"0\"
 " > "$tocreate"
-		for variable in url license depends makedepends conflicts; do
+		for variable in url license depends makedepends provides conflicts; do
 			[[ "${!variable}" ]] && echo -e "$variable=\"${!variable}\"" >> "$tocreate"
 		done
 		echo -e "\

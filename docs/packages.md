@@ -36,7 +36,8 @@ url="https://github.com/knuxify/shoppe" # Project website. Optional. If this is 
 depends="bash git curl wget" # Dependencies, separated by spaces.
 # optdepends="" # Optional dependencies, separated by spaces.
 makedepends="make" # Build dependencies, separated by spaces.
-conflicts="shoppe-git" # Packages this package conflicts with, separated by spaces. Most of the time this will contain the rolling version of a package.
+provides="shoppe-git" # If this package provides the same functionality as another package, add it here. Packages are separated by spaces. Automatically adds the package to conflicts.
+#conflicts="" # Packages this package conflicts with, separated by spaces. Most of the time this will contain the rolling version of a package.
 
 # Building/installation instructions
 source="https://github.com/shoppepm/shoppe" # Source link.

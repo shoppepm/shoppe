@@ -34,6 +34,7 @@ configdir="$HOME/.config/shoppe"
 repolist="$configdir/repositories"
 pkglist="$configdir/pkglist"
 deplist="$configdir/deplist"
+providedpkglist="$providedpkglist"
 pkginfo="$configdir/pkginfo"
 tmpdir="/tmp/shoppe"
 
@@ -159,7 +160,8 @@ fail() {
 	echo -e "$p_error $*"
 	if [[ "$skiperrors" == "true" ]]; then echo -e "$p_warn --skip-errors passed, skipping error."; else exit 1; fi
 }
-wget --show-progress &> "$tmpdir/wgettest" && grep "unrecognized option" "$tmpdir/wgettest" && noshowprogress="true"
+wget --show-progress &> "$tmpdir/wgettest"
+grep "unrecognized option" "$tmpdir/wgettest" &>/dev/null && noshowprogress="true"
 httpfetch() {
 	# This is a frontend for wget, and might support curl in the future as well.
 	if [[ "$noshowprogress" == "true" ]]; then wget -q $*; else wget -q --progress=bar:force --show-progress $*; fi
@@ -237,7 +239,7 @@ pkg_fetch() {
 			bestrepo="$repo"
 		fi
 	done
-	[[ "$bestline" == "$originalline" ]] && echo -e "$p_info $package is already up to date." && current_uptodate="true" && return 0
+	[[ "$bestline" == "$originalline" ]] && current_uptodate="true" && return 0
 	repo="$bestrepo"
 	# shellcheck disable=SC2086
 	repotofetch="$(head -n1 $configdir/repodata/$repo)"
@@ -277,7 +279,7 @@ pkg_cleanup() {
 	# This function cleans up after a shoppe package.
 	# Use this when you're running a loop that sources multiple shoppepkgs.
 	# Usage: pkg_cleanup
-	unset pkgname pkgdesc pkgarch pkgver revision license url depends optional makedepends conflicts archdependent source sourcetype tag
+	unset pkgname pkgdesc pkgarch pkgver revision license url depends optional makedepends provides conflicts archdependent source sourcetype tag
 	unset -f shoppepkg_preinstall shoppepkg_build shoppepkg_postinstall
 	unset nobuild current_uptodate
 	[[ "$forcebuild" == "true" ]] && nobuild="false"
@@ -346,6 +348,7 @@ pkg_install() {
 	fi
 	[[ "$depends" ]] && echo "$depends " >> "$pkginfo/$package/dependencies" && for dep in $depends; do echo "$dep " >> "$deplist"; done
 	[[ "$nobuild" == "false" ]] && [[ "$makedepends" ]] && echo "$makedepends " >> "$pkginfo/$package/dependencies" && for dep in $makedepends; do echo "$dep " >> "$deplist"; done
+	[[ "$provides" ]] && echo "$provides " >> "$pkginfo/$package/provides" && for prov in $provides; do echo "$prov " >> "$providedpkglist"; done
 	return 0
 }
 
@@ -355,6 +358,7 @@ pkg_remove() {
 	pkg_cleanup
 	! xargs $suauth rm -f < "$pkginfo/$package/content" && fail "Failed to remove $package."
 	rm -rf "${pkginfo:?}/${package:?}"
+	[[ -e "$pkginfo/$package/provides" ]] && for prov in $(cat "$pkginfo/$package/provides"); do sed "s/$prov/g" "$providedpkglist" > "$tmpdir/temp-ppl" && mv "$tmpdir/temp-ppl" "$providedpkglist"; done
 	sed "/^$package\ /d" "$pkglist" > "${pkglist}-tmp"
 	mv "${pkglist}-tmp" "$pkglist"
 }
@@ -523,6 +527,11 @@ shoppe_install() {
 				tocheck="${tocheck/$package/}"
 				continue
 			fi
+			if [[ "$force" != "true" ]] && grep "$package" "$providedpkglist" &>/dev/null; then
+				echo -e "$p_info Package $package was already provided by another package. Skipping..."
+				tocheck="${tocheck/$package/}"
+				continue
+			fi
 			toinstall="$toinstall $package"
 			[[ "$depends" ]] && tocheck="$tocheck $depends"
 			[[ "$nobuild" == "false" ]] && [[ "$makedepends" ]] && tocheck="$tocheck $makedepends"
@@ -543,7 +552,7 @@ shoppe_install() {
 		[[ "$packagemake" != "true" ]] && [[ "$nobuild" != "false" ]] && ! pkg_fetch_content && echo -e "$p_warn No prebuilt files found. This is most likely an issue with the package. If you're a package maintainer, use the +pm switch while building, and extract the resulting content-$arch.tar.gz from the package. If you don't want the package to have prebuilt files, add 'nobuild=false' to the shoppepkg, or in case of building from a git repository rather than a static release, add -git to the end of your package name. shoppe will now attempt to install the package, however makedepends were not installed, so this is likely going to fail." && nobuild="false" && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg"
 		echo -e "$p_info Installing $package..."
 		let currentpkg++
-		! pkg_install && fail "Failed to install package."
+		! pkg_install && fail "Failed to install $package."
 		if [[ "$packagemake" == "true" ]]; then
 			cd "$tmpdir/$package/content"
 			tar -czf content-$arch.tar.gz .
@@ -684,6 +693,7 @@ shoppe_info() {
 		[[ "$depends" ]] && echo -e "Dependencies: $depends"
 		[[ "$makedepends" ]] && echo -e "Make dependencies: $makedepends"
 		[[ "$optdepends" ]] && echo -e "Optional dependencies: $optdepends"
+		[[ "$provides" ]] && echo -e "Provides packages: $provides"
 	done
 	return 0
 }
