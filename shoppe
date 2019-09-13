@@ -107,6 +107,12 @@ Options:
 	-s, --skip-frontend
 		Forcefully skips the frontend.
 
+	-c, --skip-frontend-for-chosen-packages
+		Forcefully skips the frontend, but only for packages that
+		have been specified in the command (so in a command like
+		'shoppe install pkg1 pkg2' pkg1 and pkg2 will be skipped
+		by the frontend, but their dependencies will not).
+
 	-y, --noconfirm
 		Automatically answers all prompts.
 
@@ -284,7 +290,8 @@ pkg_cleanup() {
 	# Usage: pkg_cleanup
 	unset pkgname pkgdesc pkgarch pkgver revision license url depends optional makedepends provides conflicts archdependent source sourcetype tag
 	unset -f shoppepkg_preinstall shoppepkg_build shoppepkg_postinstall
-	unset nobuild current_uptodate
+	[[ "$currentskipfrontend" == "true" ]] && [[ -z "$pm" ]] && pm="$oldpm"
+	unset nobuild current_uptodate currentskipfrontend
 	[[ "$forcebuild" == "true" ]] && nobuild="false"
 }
 
@@ -498,7 +505,7 @@ shoppe_install() {
 	[[ -z "$packages" ]] && fail "Nothing to install!"
 	[[ ! -e "$configdir/repodata/1" ]] && echo -e "$p_warn No repositories fetched. Running update..." && shoppe_update
 #	totalrepos="$(find $configdir/repodata -mindepth 1 -type f | wc -l)" # total amount of repositories
-	tocheck="$packages"
+	tocheck="$packages" && oldpm="$pm"
 	# Until there's nothing to scan, get each package to scan and:
 	# - see if the package is actually available in any repository
 	# - fetch the package
@@ -508,6 +515,7 @@ shoppe_install() {
 		for package in $tocheck; do
 			pkg_cleanup
 			success="0"
+			[[ "$skipfrontendforchosenpkgs" == "true" ]] && [[ "$packages" == *"$package"* ]] && currentskipfrontend="true" && unset pm
 			[[ "$pm" ]] && $frontend_query ^$package$ &>/dev/null && tofrontend="$tofrontend $package" && tocheck="${tocheck/$package/}" && continue
 			[[ -z "$pm" ]] && command -v "$package" &>/dev/null && echo -e "$p_info Package $package is already installed, skipping..." && tocheck="${tocheck/$package/}" && continue
 			pkg_fetch
@@ -543,6 +551,7 @@ shoppe_install() {
 			[[ "$depends" ]] && tocheck="$tocheck $depends"
 			[[ "$nobuild" == "false" ]] && [[ "$makedepends" ]] && tocheck="$tocheck $makedepends"
 			tocheck="${tocheck/$package/}"
+			[[ "$currentskipfrontend" == "true" ]] && pm="$oldpm"
 		done
 	done
 	toinstall="$(echo -e "${toinstall}" | sed -e 's/^[[:space:]]*//')"
@@ -583,9 +592,11 @@ shoppe_install() {
 shoppe_remove() {
 	[[ -z "$packages" ]] && fail "Nothing to remove!"
 	tocheck="$packages"
+	oldpm="$pm"
 	until [[ -z "${tocheck// }" ]]; do
 		for package in $tocheck; do
 			unset currentfrontend
+			[[ "$skipfrontendforchosenpkgs" == "true" ]] && [[ "$packages" == *"$package"* ]] && currentskipfrontend="true" && unset pm
 			if [[ "$pm" ]]; then
 				! grep "^$package " "$pkglist" &>/dev/null && ! grep "^$package " "$pkglist.frontend" &>/dev/null && echo -e "$p_info Package $package is not installed, skipping..." && tocheck="${tocheck/$package/}" && continue
 			else
@@ -611,10 +622,11 @@ shoppe_remove() {
 			tocheck="${tocheck/$package/}"
 			# shellcheck disable=SC2086
 			[[ "$currentfrontend" != "true" ]] && tocheck="$tocheck $(cat $pkginfo/$package/dependencies | tr '\n' ' ')" && toremove="$package"
+			[[ "$currentskipfrontend" == "true" ]] && pm="$oldpm"
 		done
 	done
 	[[ -z "$toremove" ]] && [[ -z "$tofrontend" ]] && fail "Nothing to remove!"
-	echo -e "$p_info The following packages will be removed"
+	echo -e "$p_info The following packages will be removed:"
 	echo "$toremove"
 	[[ "$pm" ]] && [[ "$tofrontend" ]] && echo -e "$p_info Using frontend for:" && echo "$tofrontend"
 	yesnotxt="Continue?" yesno y
@@ -771,6 +783,7 @@ done
 for switch in $switches; do
 	case $switch in
 		'+skipfrontend'|'+sf'|'--skip-frontend'|'-s') skipfrontend="true";;
+		'--skip-frontend-for-chosen-packages'|'-c') skipfrontendforchosenpkgs="true";;
 		'+skiperrors'|'+se'|'--skip-errors') skiperrors="true";;
 		'+noconfirm'|'+nc'|'--noconfirm'|'-y') noconfirm="true";;
 		'+forcebuild'|'+fb'|'--forcebuild'|'-b') nobuild="false"; forcebuild="true";;
