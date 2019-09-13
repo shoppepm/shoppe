@@ -2,7 +2,7 @@
 # shellcheck disable=SC1090,SC2001,SC1091,SC2219
 ##
 ## shoppe - a portable package manager that integrates with your current package manager
-version="1.1.1"
+version="1.2.0"
 ##
 ## Licensed under the MIT License
 
@@ -263,6 +263,14 @@ pkg_fetch() {
 		"http-full: "*) httpfetch -q "${repotofetch/http\-full\:\ /}/$package/shoppepkg" -O "$tmpdir/$package/shoppepkg" && success="1" && [[ "$forcebuild" == "true" ]] && [[ "$packagemake" != "true" ]] && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg";;
 		*) echo -e "$p_debug Repo data file for id $repo does not contain repository path! Have you been tampering with the file? Run shoppe update to fix this.";;
 	esac
+	if [[ ! -e "$tmpdir/$package/optional" ]]; then
+		osuccess="0"
+		case $repotofetch in
+			"local: "*|"http: "*) [[ -e "${repotofetch/local\:\ /}/$package/optional" ]] && cp "${repotofetch/local\:\ /}/$package/optional" "$tmpdir/$package/" && osuccess='1';;
+			"http-full: "*) if httpfetch -q "${repotofetch/http\:\ /}/$package/content-$arch.tar.gz" -O "$tmpdir/$package/content-$arch.tar.gz"; then osuccess='1'; else echo -e "$p_warn Prebuilt files not found, defaulting to build mode..." && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg"; fi;;
+			*) echo -e "$p_debug Repo data file for id $repo does not contain repository path! Have you been tampering with the file? Run shoppe update to fix this.";;
+		esac
+	fi
 	if [[ "$success" == "1" ]]; then return 0; else return 1; fi
 }
 
