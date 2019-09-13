@@ -1,4 +1,4 @@
-#!/usr/bin/bash -x
+#!/usr/bin/env bash
 # shellcheck disable=SC1090,SC2001,SC1091,SC2219
 ##
 ## shoppe - a portable package manager that integrates with your current package manager
@@ -232,7 +232,7 @@ pkg_fetch() {
 	done < "$repolist"
 	reposwithpkg=$(echo "$reposwithpkg" | sed -e 's/^[ \t]*//')
 	[[ -z "$reposwithpkg" ]] && fail "Could not find package $package. Check if your spelling is correct or add a repository that contains this package."
-	bestline=$(grep "^$package " "$pkglist")
+	[[ "$command" != "shoppe_info" ]] && bestline=$(grep "^$package " "$pkglist")
 	[[ -z "$bestline" ]] && bestline="$package 0 0"
 	originalline="$bestline"
 	for repo in $reposwithpkg; do
@@ -245,6 +245,9 @@ pkg_fetch() {
 		currentline=$(grep "^$package " "$configdir/repodata/$repo")
 		# shellcheck disable=SC2086
 		if [[ "$currentline" != "$bestline" ]] && [[ "$(echo $currentline | awk '{print $3;}' | sed 's/[^0-9]*//g')" -gt "$(echo $bestline | awk '{print $3;}' | sed 's/[^0-9]*//g')" ]] && [[ "$(echo $currentline | awk '{print $2;}')" -ge "$(echo $bestline | awk '{print $2;}')" ]]; then
+			bestline="$currentline"
+			bestrepo="$repo"
+		elif [[ "$currentline" != "bestline" ]] && [[ "$(echo $currentline | awk '{print $3;}')" == "$(echo $bestline | awk '{print $3;}')" ]] && [[ "$(echo $currentline | awk '{print $2;}')" -gt "$(echo $bestline | awk '{print $2;}')" ]]; then
 			bestline="$currentline"
 			bestrepo="$repo"
 		fi
