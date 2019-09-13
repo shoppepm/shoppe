@@ -510,27 +510,31 @@ shoppe_install() {
 			pkg_fetch
 			source "$tmpdir/$package/shoppepkg" &>/dev/null
 			[[ "$package" == *"-git" ]] && [[ "$forcebuild" != "true" ]] && [[ "$nobuild" != "true" ]] && echo -e "$p_info $package will be built manually." && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg" && nobuild=false
-			#if [[ "$force" != "true" ]] && grep "^$package $pkgrel $pkgver" "$pkglist" &>/dev/null; then; fi
-			if [[ "$force" != "true" ]] && [[ "$current_uptodate" == "true" ]]; then
-				if grep "^$package " "$deplist" &>/dev/null; then
-					echo -e "$p_info Package $package was installed as a dependency. Setting as manually installed and skipping install..."
-					sed "/^$package\ /d" "$deplist" > "${deplist}-tmp"
-					mv "${deplist}-tmp" "$deplist"
-				else
-					echo -e "$p_info Package $package is already installed, skipping..."
+			if [[ "$force" != "true" ]]; then
+				for conflictpkg in $conflicts $provides; do
+					if grep "^$conflictpkg " "$pkglist" &>/dev/null || grep "^$conflictpkg " "$pkglist.frontend" &>/dev/null; then fail "Package $package conflicts with $conflictpkg. Exiting..."; fi
+				done
+				if [[ "$current_uptodate" == "true" ]]; then
+					if grep "^$package " "$deplist" &>/dev/null; then
+						echo -e "$p_info Package $package was installed as a dependency. Setting as manually installed and skipping install..."
+						sed "/^$package\ /d" "$deplist" > "${deplist}-tmp"
+						mv "${deplist}-tmp" "$deplist"
+					else
+						echo -e "$p_info Package $package is already installed, skipping..."
+					fi
+					tocheck="${tocheck/$package/}"
+					continue
 				fi
-				tocheck="${tocheck/$package/}"
-				continue
-			fi
-			if [[ "$pm" ]] && [[ "$force" != "true" ]] && grep "^$package $pkgrel $pkgver" "$pkglist.frontend" &>/dev/null; then
-				echo -e "$p_info Package $package is already installed via frontend, skipping..."
-				tocheck="${tocheck/$package/}"
-				continue
-			fi
-			if [[ "$force" != "true" ]] && grep "$package" "$providedpkglist" &>/dev/null; then
-				echo -e "$p_info Package $package was already provided by another package. Skipping..."
-				tocheck="${tocheck/$package/}"
-				continue
+				if [[ "$pm" ]] && grep "^$package $pkgrel $pkgver" "$pkglist.frontend" &>/dev/null; then
+					echo -e "$p_info Package $package is already installed via frontend, skipping..."
+					tocheck="${tocheck/$package/}"
+					continue
+				fi
+				if grep "$package" "$providedpkglist" &>/dev/null; then
+					echo -e "$p_info Package $package was already provided by another package. Skipping..."
+					tocheck="${tocheck/$package/}"
+					continue
+				fi
 			fi
 			toinstall="$toinstall $package"
 			[[ "$depends" ]] && tocheck="$tocheck $depends"
