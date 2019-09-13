@@ -39,6 +39,19 @@ ls ~/.config/shoppe/*
 ./shoppe remove boredbutton -y
 ! [[ -e "/usr/bin/bored" ]]
 
+echo "custominstalldir='$HOME/custominstall'" >> "$HOME/.config/shoppe/config"
+
+./shoppe install boredbutton -y
+[[ -e "/usr/bin/bored" ]]
+
+ls ~/.config/shoppe
+ls ~/.config/shoppe/*
+
+./shoppe remove boredbutton -y
+! [[ -e "/usr/bin/bored" ]]
+
+rm -f "$HOME/.config/shoppe/config"
+
 ./shoppe update -y
 ./shoppe upgrade -y
 ./shoppe info boredbutton

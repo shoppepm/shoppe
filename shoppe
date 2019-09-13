@@ -49,6 +49,7 @@ skiperrors="false"
 [[ ! -e "$repolist" ]] && echo "http: https://raw.githubusercontent.com/shoppepm/shoppe-repos/master" > "$repolist"
 [[ ! -e "$pkglist.frontend" ]] && touch "$pkglist.frontend"
 [[ ! -e "$pkglist" ]] && echo "shoppe 0 $version" > "$pkglist"
+[[ ! -e "$custominstalldir" ]] && mkdir -p "$custominstalldir"
 ! grep '^shoppe ' "$pkglist" &>/dev/null && echo "shoppe 0 $version" >> "$pkglist"
 
 ## Help (--help)
@@ -336,13 +337,18 @@ pkg_install() {
 		fi
 	fi
 	! cd content && fail "Failed to install $package."
-	! $suauth cp -rf . / && fail "Failed to install $package."
+	if [[ -z "$custominstalldir" ]]; then
+		! $suauth cp -rf . / && fail "Failed to install $package."
+	else
+		! $suauth cp -rf . "$custominstalldir/" && fail "Failed to install $package."
+	fi
 	cd "$tmpdir/$package"
 	[[ -e "$pkginfo/$package" ]] && rm -rf "${pkginfo:?}/${package:?}"
 	mkdir "$pkginfo/$package"
 	shopt -s globstar
 	[[ -e "$pkginfo/$package/content" ]] && rm "$pkginfo/$package/content"
 	for file in "$tmpdir/$package/content"/**; do
+		[[ "$custominstalldir" ]] && $suauth ln -s "$file" "${file/$PWD\/content/}"
 		# This doesn't include directories that are made by the package,
 		# but that's still better than adding the entire / directory.
 		[[ -f "$file" ]] && echo "${file/$PWD\/content/}" >> "$pkginfo/$package/content"
@@ -370,7 +376,13 @@ pkg_remove() {
 	# This is an internal function used to remove packages.
 	# Usage: package="packagetoremove" pkg_remove
 	pkg_cleanup
-	! xargs $suauth rm -f < "$pkginfo/$package/content" && fail "Failed to remove $package."
+	if [[ "$custominstalldir" ]]; then
+		while read -r contentline; do
+			! $suauth rm -f "$custominstalldir$contentline" && fail "Failed to remove $package."
+		done < "$pkginfo/$package/content"
+	else
+		! xargs $suauth rm -f < "$pkginfo/$package/content" && fail "Failed to remove $package."
+	fi
 	rm -rf "${pkginfo:?}/${package:?}"
 	[[ -e "$pkginfo/$package/provides" ]] && for prov in $(cat "$pkginfo/$package/provides"); do sed "s/$prov/g" "$providedpkglist" > "$tmpdir/temp-ppl" && mv "$tmpdir/temp-ppl" "$providedpkglist"; done
 	sed "/^$package\ /d" "$pkglist" > "${pkglist}-tmp"

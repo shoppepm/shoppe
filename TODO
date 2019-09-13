@@ -3,8 +3,6 @@
 ## shoppe
 
 - Implement optional dependencies [1.2.0]
-- Implement ability to list info for all installed packages [1.2.0]
-- Add ability to save content to a separate directory and symlink it into main system folders (useful for embedded devices which don't have internal space but do have sd card space) [1.2.0]
 - Add FTP repositories [1.3.0]
 
 ## shoppe-utils
