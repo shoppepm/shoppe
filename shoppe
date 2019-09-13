@@ -1,4 +1,4 @@
-#!/usr/bin/bash -x
+#!/usr/bin/env bash
 # shellcheck disable=SC1090,SC2001,SC1091,SC2219
 ##
 ## shoppe - a portable package manager that integrates with your current package manager
@@ -30,7 +30,7 @@ p_error="\033[31;1m!!\033[0m"
 p_debug="\033[35;1m~!\033[0m"
 
 ## Configuration. This is overwritten by the main config file ($configdir/config)
-configdir="/usr/share/shoppe"
+configdir="$HOME/.config/shoppe"
 repolist="$configdir/repositories"
 pkglist="$configdir/pkglist"
 deplist="$configdir/deplist"
@@ -41,39 +41,15 @@ tmpdir="/tmp/shoppe"
 force="false"
 skiperrors="false"
 
-sudosu() {
-	# Run commands with su root -c 'commands'
-	su root -c "$*"
-}
-
-auth_init() {
-	# This function is used to figure out what authentication methods are available.
-	# This is used to replace sudo, as it is not present on all systems and is not required when the user is already root.
-	# Usage: auth_init
-	# Using authentication: $suauth commands
-	[[ "$EUID" -eq 0 ]] && return 0 # User is running as root, no authentication is required.
-	command -v "cygstart" &>/dev/null && suauth="cygstart --action=runas" && return 0 # cygwin is being used and cygstart is available
-	command -v "sudo" &>/dev/null && suauth="sudo" && return 0 # sudo is available
-	command -v "su" &>/dev/null && suauth="sudosu" && return 0
-	fail "No authentication methods found! If you have a sudo alternative, add it to the auth_init command and make a pull request."
-}
-
-auth_init
-
+[[ ! -e "$HOME/.config" ]] && mkdir "$HOME/.config"
 [[ -e "$configdir/config" ]] && source "$configdir/config"
-[[ ! -e "$configdir" ]] && if [[ "$configdir" != "$HOME"* ]] && [[ "$configdir" != "/tmp"* ]]; then
-	$suauth mkdir -p "$configdir"
-	$suauth chmod -R ugo+rwx "$configdir"
-else
-	mkdir -p "$configdir"
-fi
+[[ ! -e "$configdir" ]] && mkdir -p "$configdir"
 [[ ! -e "$pkginfo" ]] && mkdir "$pkginfo"
 [[ ! -e "$configdir/repodata" ]] && mkdir "$configdir/repodata"
 [[ ! -e "$repolist" ]] && echo "http: https://raw.githubusercontent.com/shoppepm/shoppe-repos/master" > "$repolist"
 [[ ! -e "$pkglist.frontend" ]] && touch "$pkglist.frontend"
 [[ ! -e "$pkglist" ]] && echo "shoppe 0 $version" > "$pkglist"
-[[ "$custominstalldir" ]] && [[ ! -e "$custominstalldir" ]] && mkdir -p "$custominstalldir"
-
+[[ ! -e "$custominstalldir" ]] && mkdir -p "$custominstalldir"
 ! grep '^shoppe ' "$pkglist" &>/dev/null && echo "shoppe 0 $version" >> "$pkglist"
 
 ## Help (--help)
@@ -158,6 +134,23 @@ exit 0
 }
 
 ## Helper functions
+
+sudosu() {
+	# Run commands with su root -c 'commands'
+	su root -c "$*"
+}
+
+auth_init() {
+	# This function is used to figure out what authentication methods are available.
+	# This is used to replace sudo, as it is not present on all systems and is not required when the user is already root.
+	# Usage: auth_init
+	# Using authentication: $suauth commands
+	[[ "$EUID" -eq 0 ]] && return 0 # User is running as root, no authentication is required.
+	command -v "cygstart" &>/dev/null && suauth="cygstart --action=runas" && return 0 # cygwin is being used and cygstart is available
+	command -v "sudo" &>/dev/null && suauth="sudo" && return 0 # sudo is available
+	command -v "su" &>/dev/null && suauth="sudosu" && return 0
+	fail "No authentication methods found! If you have a sudo alternative, add it to the auth_init command and make a pull request."
+}
 
 yesno() {
 	case $1 in
@@ -822,6 +815,7 @@ for switch in $switches; do
 		'+version'|'+v'|'--version'|'-v') echo "shoppe $version"; exit 0;;
 	esac
 done
+auth_init
 [[ "$skipfrontend" != "true" ]] && frontend_init
 $command
 exit 0
