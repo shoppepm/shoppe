@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/bash -x
 # shellcheck disable=SC1090,SC2001,SC1091,SC2219
 ##
 ## shoppe - a portable package manager that integrates with your current package manager
@@ -84,7 +84,8 @@ Commands:
 		Upgrades all packages.
 
 	info <packages>
-		Shows information about a package.
+		Shows information about a package. You can also use 'info installed'
+		to show all installed packages.
 
 	listall
 		Lists all installed packages.
@@ -701,6 +702,12 @@ shoppe_upgrade() {
 # shellcheck disable=SC2154,SC2086
 shoppe_info() {
 	[[ -z "$packages" ]] && fail "No packages to display!"
+	if [[ "$packages" == "installed" ]]; then
+		unset packages
+		while read -r listline; do
+			packages="$packages $(echo $listline | awk '{print $1;}')"
+		done < "$pkglist"
+	fi
 	for package in $packages; do
 		forcebuild="true"
 		! pkg_fetch && fail "Package $package does not exist!"
@@ -797,3 +804,5 @@ auth_init
 [[ "$skipfrontend" != "true" ]] && frontend_init
 $command
 exit 0
+nobuild='false'
+nobuild='false'
