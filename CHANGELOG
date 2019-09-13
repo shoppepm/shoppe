@@ -1,3 +1,32 @@
+## 1.2.0
+
+### BREAKING (soon):
+
+- Started deprecating '+' switches and cleaned up switch parsing code (b65c92986326c8d32077ad45e1e218ab814eec68)
+
+### NEW:
+
+- Added contentdir and sourcedir variables (372675d799fa4178f760a04dac89d276a6b71032)
+- Added hybrid repositories (local shoppepkg, non-local content.tar.gz) (7020ab10ed6b41275713afc6b258e64d60f3e684)
+- 'provides' variable (see documentation) (fc78c073d7dd53592dd6ad4b08f07cea08e28881)
+- Added ability to list information about all installed packages ('info installed') (8df6641bf07dfef8b0f6c5eb3d78de2b373733b6)
+
+### FEATURE:
+
+- Added support for cygrun as sudo alternative (7810f8dd10d5c267a882dd11985b7a736e12f2b4)
+- Added switch (-c) for skipping the frontend only for packages which are being manually installed (in the packages variable)
+
+### IMPROVEMENT
+
+- Shoppe will now check if command for package exists as fallback when no package manager is found (3abe3f09e1bf08a7f7e2212b6f839d24ea32fc28)
+
+### FIX:
+
+- Fixed certain versions of sha256 showing input mode making checksums invalid (3122dcadfca9da562e97e861a7c04d096d48e300)
+- Fixed pm variable not being empty when no package manager is detected (4d8b0dac382ce9484de34ea8f234879d57dfeb16)
+- Various fixes to the httpfetch function and nicer output
+- Fixed conflicts
+
 ## 1.1.1
 ### IMPROVEMENT/UX:
 

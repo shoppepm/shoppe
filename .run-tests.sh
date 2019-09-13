@@ -12,35 +12,48 @@ chmod +x shoppe
 ! ./shoppe
 ./shoppe help
 
-./shoppe install boredbutton +nc
+./shoppe install boredbutton -y
 [[ -e "/usr/bin/bored" ]]
 
 ls ~/.config/shoppe
 ls ~/.config/shoppe/*
 
-./shoppe remove boredbutton +nc
+./shoppe remove boredbutton -y
 ! [[ -e "/usr/bin/bored" ]]
 
-./shoppe install boredbutton +pm +nc
+./shoppe install boredbutton -yp
 [[ -e "/usr/bin/bored" ]]
 
 ls ~/.config/shoppe
 ls ~/.config/shoppe/*
 
-./shoppe remove boredbutton +nc
+./shoppe remove boredbutton -y
 ! [[ -e "/usr/bin/bored" ]]
 
-./shoppe install ~/boredbutton.tar.gz +nc
+./shoppe install ~/boredbutton.tar.gz -y
 [[ -e "/usr/bin/bored" ]]
 
 ls ~/.config/shoppe
 ls ~/.config/shoppe/*
 
-./shoppe remove boredbutton +nc
+./shoppe remove boredbutton -y
 ! [[ -e "/usr/bin/bored" ]]
 
-./shoppe update +nc
-./shoppe upgrade +nc
+echo "custominstalldir='$HOME/custominstall'" >> "$HOME/.config/shoppe/config"
+
+./shoppe install boredbutton -y
+[[ -e "/usr/bin/bored" ]]
+
+ls ~/.config/shoppe
+ls ~/.config/shoppe/*
+
+./shoppe remove boredbutton -y
+! [[ -e "/usr/bin/bored" ]]
+
+rm -f "$HOME/.config/shoppe/config"
+
+./shoppe update -y
+./shoppe upgrade -y
 ./shoppe info boredbutton
 ! ./shoppe info pkgthatdoesnotexist
 ./shoppe listall
@@ -78,11 +91,11 @@ mkdir ~/testrepo
 sed "/pkgrel/d" "$HOME/testrepo/boredbutton/shoppepkg" > "$HOME/testrepo/boredbutton/shoppepkg.tmp"
 mv "$HOME/testrepo/boredbutton/shoppepkg.tmp" "$HOME/testrepo/boredbutton/shoppepkg"
 echo "pkgrel='999'" >> "$HOME/testrepo/boredbutton/shoppepkg"
-./shoppe-utils repo restock ~/testrepo +nc
+./shoppe-utils repo restock ~/testrepo -y
 ls ~/testrepo/*
 
 ./shoppe addrepo ~/testrepo
-./shoppe upgrade +nc
+./shoppe upgrade -y
 
 if [[ "$TRAVIS_BRANCH" == "develop" ]]; then
 	git clone https://github.com/shoppepm/shoppe "$HOME/shoppetopush" -b develop

@@ -20,9 +20,9 @@ See the example shoppe package below for more information.
 
 ## Building a package
 
-Simply add it to a repository (see: [Repositories](repositories.md)), add the repository and install with the +pm switch, or use ``shoppe install /path/to/shoppepkg +pm``.
+Simply add it to a repository (see: [Repositories](repositories.md)), add the repository and install with the -p switch, or use ``shoppe install /path/to/shoppepkg -p``.
 
-## Example shoppe package
+## Example shoppe package (and all of the variables)
 
 ```bash
 # Basic information
@@ -36,7 +36,8 @@ url="https://github.com/knuxify/shoppe" # Project website. Optional. If this is 
 depends="bash git curl wget" # Dependencies, separated by spaces.
 # optdepends="" # Optional dependencies, separated by spaces.
 makedepends="make" # Build dependencies, separated by spaces.
-conflicts="shoppe-git" # Packages this package conflicts with, separated by spaces. Most of the time this will contain the rolling version of a package.
+provides="shoppe-git" # If this package provides the same functionality as another package, add it here. Packages are separated by spaces. Automatically adds the package to conflicts.
+#conflicts="" # Packages this package conflicts with, separated by spaces. Most of the time this will contain the rolling version of a package.
 
 # Building/installation instructions
 source="https://github.com/shoppepm/shoppe" # Source link.
@@ -50,9 +51,10 @@ sourcetype="git-tag" # Source type, defines how to get the source.
 tag="$version"
 
 # Building. This is required. This is where all build steps go (preparation, building, installing).
+# TIP: Use the $contentdir variable to refer to the content directory (where built files which would usually go to the root directory should be stored) and the $sourcedir variable to refer to the source directory (fetched by get_source).
 shoppepkg_build() {
 	get_source
-	cd source
+	cd $sourcedir
 	# Building commands go here...
 	cd ../
 }

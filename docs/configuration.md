@@ -26,3 +26,4 @@ This file contains packages, package revisions and package versions.
 - pkglist - File containing all installed packages.
 - pkginfo - Directory containing information about certain packages.
 - tmpdir - Temporary directory.
+- custominstalldir - Custom directory to which files are unpacked. Symlinks everything to root afterwards. Useful for devices with limited internal storage and larger external storage.
