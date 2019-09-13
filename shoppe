@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/bash -x
 # shellcheck disable=SC1090,SC2001,SC1091,SC2219
 ##
 ## shoppe - a portable package manager that integrates with your current package manager
@@ -30,7 +30,7 @@ p_error="\033[31;1m!!\033[0m"
 p_debug="\033[35;1m~!\033[0m"
 
 ## Configuration. This is overwritten by the main config file ($configdir/config)
-configdir="$HOME/.config/shoppe"
+configdir="/usr/share/shoppe"
 repolist="$configdir/repositories"
 pkglist="$configdir/pkglist"
 deplist="$configdir/deplist"
@@ -41,15 +41,20 @@ tmpdir="/tmp/shoppe"
 force="false"
 skiperrors="false"
 
-[[ ! -e "$HOME/.config" ]] && mkdir "$HOME/.config"
 [[ -e "$configdir/config" ]] && source "$configdir/config"
-[[ ! -e "$configdir" ]] && mkdir -p "$configdir"
+[[ ! -e "$configdir" ]] && if [[ "$configdir" != "$HOME"* ]] || [[ "$configdir" != "/tmp"* ]]; then
+	$suauth mkdir -p "$configdir"
+	$suauth chmod -R ugo+rwx "$configdir"
+else
+	mkdir -p "$configdir"
+fi
 [[ ! -e "$pkginfo" ]] && mkdir "$pkginfo"
 [[ ! -e "$configdir/repodata" ]] && mkdir "$configdir/repodata"
 [[ ! -e "$repolist" ]] && echo "http: https://raw.githubusercontent.com/shoppepm/shoppe-repos/master" > "$repolist"
 [[ ! -e "$pkglist.frontend" ]] && touch "$pkglist.frontend"
 [[ ! -e "$pkglist" ]] && echo "shoppe 0 $version" > "$pkglist"
-[[ ! -e "$custominstalldir" ]] && mkdir -p "$custominstalldir"
+[[ "$custominstalldir" ]] && [[ ! -e "$custominstalldir" ]] && mkdir -p "$custominstalldir"
+
 ! grep '^shoppe ' "$pkglist" &>/dev/null && echo "shoppe 0 $version" >> "$pkglist"
 
 ## Help (--help)
