@@ -58,6 +58,8 @@ auth_init() {
 	fail "No authentication methods found! If you have a sudo alternative, add it to the auth_init command and make a pull request."
 }
 
+auth_init
+
 [[ -e "$configdir/config" ]] && source "$configdir/config"
 [[ ! -e "$configdir" ]] && if [[ "$configdir" != "$HOME"* ]] && [[ "$configdir" != "/tmp"* ]]; then
 	$suauth mkdir -p "$configdir"
@@ -820,9 +822,6 @@ for switch in $switches; do
 		'+version'|'+v'|'--version'|'-v') echo "shoppe $version"; exit 0;;
 	esac
 done
-auth_init
 [[ "$skipfrontend" != "true" ]] && frontend_init
 $command
 exit 0
-nobuild='false'
-nobuild='false'
