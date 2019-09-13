@@ -41,8 +41,25 @@ tmpdir="/tmp/shoppe"
 force="false"
 skiperrors="false"
 
+sudosu() {
+	# Run commands with su root -c 'commands'
+	su root -c "$*"
+}
+
+auth_init() {
+	# This function is used to figure out what authentication methods are available.
+	# This is used to replace sudo, as it is not present on all systems and is not required when the user is already root.
+	# Usage: auth_init
+	# Using authentication: $suauth commands
+	[[ "$EUID" -eq 0 ]] && return 0 # User is running as root, no authentication is required.
+	command -v "cygstart" &>/dev/null && suauth="cygstart --action=runas" && return 0 # cygwin is being used and cygstart is available
+	command -v "sudo" &>/dev/null && suauth="sudo" && return 0 # sudo is available
+	command -v "su" &>/dev/null && suauth="sudosu" && return 0
+	fail "No authentication methods found! If you have a sudo alternative, add it to the auth_init command and make a pull request."
+}
+
 [[ -e "$configdir/config" ]] && source "$configdir/config"
-[[ ! -e "$configdir" ]] && if [[ "$configdir" != "$HOME"* ]] || [[ "$configdir" != "/tmp"* ]]; then
+[[ ! -e "$configdir" ]] && if [[ "$configdir" != "$HOME"* ]] && [[ "$configdir" != "/tmp"* ]]; then
 	$suauth mkdir -p "$configdir"
 	$suauth chmod -R ugo+rwx "$configdir"
 else
@@ -139,23 +156,6 @@ exit 0
 }
 
 ## Helper functions
-
-sudosu() {
-	# Run commands with su root -c 'commands'
-	su root -c "$*"
-}
-
-auth_init() {
-	# This function is used to figure out what authentication methods are available.
-	# This is used to replace sudo, as it is not present on all systems and is not required when the user is already root.
-	# Usage: auth_init
-	# Using authentication: $suauth commands
-	[[ "$EUID" -eq 0 ]] && return 0 # User is running as root, no authentication is required.
-	command -v "cygstart" &>/dev/null && suauth="cygstart --action=runas" && return 0 # cygwin is being used and cygstart is available
-	command -v "sudo" &>/dev/null && suauth="sudo" && return 0 # sudo is available
-	command -v "su" &>/dev/null && suauth="sudosu" && return 0
-	fail "No authentication methods found! If you have a sudo alternative, add it to the auth_init command and make a pull request."
-}
 
 yesno() {
 	case $1 in
