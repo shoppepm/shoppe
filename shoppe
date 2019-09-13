@@ -250,7 +250,7 @@ pkg_fetch() {
 		fi
 	done
 	[[ "$bestline" == "$originalline" ]] && [[ "$command" != "shoppe_info" ]] && current_uptodate="true" && return 0
-	repo="$bestrepo"
+	repo=$(echo "$bestrepo" | sed -e 's/^[ \t]*//')
 	# shellcheck disable=SC2086
 	repotofetch="$(head -n1 $configdir/repodata/$repo)"
 	case $repotofetch in
