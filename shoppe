@@ -222,7 +222,7 @@ pkg_fetch() {
 			fail "Failed to extract $package."
 		fi
 	fi
-	[[ "$command" != "shoppe_upgrade" ]] && [[ -f "$package" ]] && [[ "$package" != *".tar.gz" ]] && grep "pkgname=" "$package" && echo "nobuild='false'" >> "$package" && mkdir "$tmpdir/$package" && cp "$package" "$tmpdir/$package/shoppepkg" && package="$(basename $package)" && return 0
+	[[ "$command" != "shoppe_upgrade" ]] && [[ -f "$package" ]] && [[ "$package" != *".tar.gz" ]] && [[ "$package" != "shoppe" ]] && grep "pkgname=" "$package" && echo "nobuild='false'" >> "$package" && mkdir "$tmpdir/$package" && cp "$package" "$tmpdir/$package/shoppepkg" && package="$(basename $package)" && return 0
 	[[ ! -e "$tmpdir/$package" ]] && mkdir "$tmpdir/$package"
 	while IFS="" read -r repo || [[ -n "$repo" ]]; do
 		let repoID++
@@ -249,7 +249,7 @@ pkg_fetch() {
 			bestrepo="$repo"
 		fi
 	done
-	[[ "$bestline" == "$originalline" ]] && current_uptodate="true" && return 0
+	[[ "$bestline" == "$originalline" ]] && [[ "$command" != "shoppe_info" ]] && current_uptodate="true" && return 0
 	repo="$bestrepo"
 	# shellcheck disable=SC2086
 	repotofetch="$(head -n1 $configdir/repodata/$repo)"
