@@ -275,8 +275,8 @@ for parse in $*; do
 	let currentcmd++
 	if [[ "$currentcmd" -gt "2" ]]; then
 		case $parse in
+			+*) echo -e "$p_warn '+' switches are being deprecated. Please use their full switch alternatives instead. See $0 help"; switches="$switches $parse";;
 			-*) switches="$switches $parse";;
-			+*) shoppeswitches="$shoppeswitches $parse";;
 			*) packages="$packages $parse";;
 		esac
 	fi
@@ -284,20 +284,22 @@ done
 command=$(echo "$command" | sed -e 's/^[ \t]*//')
 packages=$(echo "$packages" | sed -e 's/^[ \t]*//')
 switches=$(echo "$switches" | sed -e 's/^[ \t]*//')
-for switch in $shoppeswitches; do
-	case $switch in
-		"+noconfirm"|"+nc") noconfirm="true";;
-		"+f"|"+force") force="true";;
-		'+h'|'+help') shoppe_help;;
-		'+version'|'+v') echo "shoppe-utils $version"; exit 0;;
-	esac
+for switch in $switches; do
+    if [[ "$switch" != "--"* ]] && [[ "${#switch}" != "2" ]]; then
+        switches="${switches/$switch/}"
+        switchcheck=$(echo "$switch" | sed -e 's/\(.\)/\1\ /g')
+        for toconvert in $switchcheck; do
+            [[ "$toconvert" != "-" ]] && switches="$switches -$toconvert"
+        done
+        switches=$(echo "$switches" | sed -e 's/^[ \t]*//')
+    fi
 done
 for switch in $switches; do
 	case $switch in
-		--noconfirm|-y) noconfirm="true";;
-		--help|-h) shoppe_help;;
-		--force) force="true";;
-		'--version'|'-v') echo "shoppe-utils $version"; exit 0;;
+		'+noconfirm'|'+nc'|'--noconfirm'|'-y') noconfirm="true";;
+		'+f'|'+force'|'--force'|'-f') force="true";;
+		'+h'|'+help'|'--help'|'-h') shoppe_help;;
+		'+version'|'+v'|'--version'|'-v') echo "shoppe $version"; exit 0;;
 	esac
 done
 case $2 in
@@ -307,4 +309,3 @@ esac
 auth_init
 if [[ "$command" == "utils_repo_addpkg" ]]; then $command $packages; else $command; fi
 exit 0
-

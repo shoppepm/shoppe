@@ -20,7 +20,7 @@ See the example shoppe package below for more information.
 
 ## Building a package
 
-Simply add it to a repository (see: [Repositories](repositories.md)), add the repository and install with the +pm switch, or use ``shoppe install /path/to/shoppepkg +pm``.
+Simply add it to a repository (see: [Repositories](repositories.md)), add the repository and install with the -p switch, or use ``shoppe install /path/to/shoppepkg -p``.
 
 ## Example shoppe package (and all of the variables)
 
