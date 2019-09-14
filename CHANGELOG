@@ -1,3 +1,13 @@
+## 1.2.1
+
+### NEW:
+
+- Added optional dependencies (ae32a65663a6902dca4adc462fcb283dbdf9eaab)
+
+### FIX:
+
+- Fixed error at startup when there is no custom install directory provided (915fe69)
+
 ## 1.2.0
 
 ### BREAKING (soon):
