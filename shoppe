@@ -2,7 +2,7 @@
 # shellcheck disable=SC1090,SC2001,SC1091,SC2219
 ##
 ## shoppe - a portable package manager that integrates with your current package manager
-version="1.2.0"
+version="1.2.1"
 ##
 ## Licensed under the MIT License
 
@@ -49,7 +49,7 @@ skiperrors="false"
 [[ ! -e "$repolist" ]] && echo "http: https://raw.githubusercontent.com/shoppepm/shoppe-repos/master" > "$repolist"
 [[ ! -e "$pkglist.frontend" ]] && touch "$pkglist.frontend"
 [[ ! -e "$pkglist" ]] && echo "shoppe 0 $version" > "$pkglist"
-[[ ! -e "$custominstalldir" ]] && mkdir -p "$custominstalldir"
+[[ ! -z "$custominstalldir" ]] && [[ ! -e "$custominstalldir" ]] && mkdir -p "$custominstalldir"
 ! grep '^shoppe ' "$pkglist" &>/dev/null && echo "shoppe 0 $version" >> "$pkglist"
 
 ## Help (--help)
@@ -263,11 +263,12 @@ pkg_fetch() {
 		"http-full: "*) httpfetch -q "${repotofetch/http\-full\:\ /}/$package/shoppepkg" -O "$tmpdir/$package/shoppepkg" && success="1" && [[ "$forcebuild" == "true" ]] && [[ "$packagemake" != "true" ]] && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg";;
 		*) echo -e "$p_debug Repo data file for id $repo does not contain repository path! Have you been tampering with the file? Run shoppe update to fix this.";;
 	esac
-	if [[ ! -e "$tmpdir/$package/optional" ]]; then
+	if [[ ! -e "$tmpdir/$package/optdepends" ]]; then
 		osuccess="0"
 		case $repotofetch in
-			"local: "*|"http: "*) [[ -e "${repotofetch/local\:\ /}/$package/optional" ]] && cp "${repotofetch/local\:\ /}/$package/optional" "$tmpdir/$package/" && osuccess='1';;
-			"http-full: "*) if httpfetch -q "${repotofetch/http\:\ /}/$package/content-$arch.tar.gz" -O "$tmpdir/$package/content-$arch.tar.gz"; then osuccess='1'; else echo -e "$p_warn Prebuilt files not found, defaulting to build mode..." && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg"; fi;;
+			"http: "*) [[ -e "$configdir/repofiles/$repo/$package/optdepends" ]] && cp "$configdir/repofiles/$repo/$package/optdepends" "$tmpdir/$package/" && osuccess='1';;
+			"local: "*) [[ -e "${repotofetch/local\:\ /}/$package/optdepends" ]] && cp "${repotofetch/local\:\ /}/$package/optdepends" "$tmpdir/$package/" && osuccess='1';;
+			"http-full: "*) httpfetch -q "${repotofetch/http\-full\:\ /}/$package/content-$arch.tar.gz" -O "$tmpdir/$package/content-$arch.tar.gz" && osuccess='1';;
 			*) echo -e "$p_debug Repo data file for id $repo does not contain repository path! Have you been tampering with the file? Run shoppe update to fix this.";;
 		esac
 	fi
@@ -301,7 +302,7 @@ pkg_cleanup() {
 	# This function cleans up after a shoppe package.
 	# Use this when you're running a loop that sources multiple shoppepkgs.
 	# Usage: pkg_cleanup
-	unset pkgname pkgdesc pkgarch pkgver revision license url depends optional makedepends provides conflicts archdependent source sourcetype tag
+	unset pkgname pkgdesc pkgarch pkgver revision license url depends optdepends makedepends provides conflicts archdependent source sourcetype tag
 	unset -f shoppepkg_preinstall shoppepkg_build shoppepkg_postinstall
 	[[ "$currentskipfrontend" == "true" ]] && [[ -z "$pm" ]] && pm="$oldpm"
 	unset nobuild current_uptodate currentskipfrontend
@@ -593,6 +594,24 @@ shoppe_install() {
 		echo -e "$p_info Installing $package..."
 		let currentpkg++
 		! pkg_install && fail "Failed to install $package."
+		if [[ "$optdepends" ]] && [[ -e "$tmpdir/$package/optdepends" ]]; then
+			echo -e "$p_info Optional dependencies:"
+			for dep in $optdepends; do
+				if grep "^$dep " "$tmpdir/$package/optdepends" &>/dev/null; then
+					if grep "^$dep$" "$pkglist" &>/dev/null || grep "^$dep$" "$pkglist.frontend" &>/dev/null; then
+						echo "$(grep ^$dep $tmpdir/$package/optdepends) [Installed]"
+					else
+						grep "^$dep" "$tmpdir/$package/optdepends"
+					fi
+				else
+					if grep "^$dep$" "$pkglist" &>/dev/null || grep "^$dep$" "$pkglist.frontend" &>/dev/null; then
+						echo "$dep [Installed]"
+					else
+						echo "$dep"
+					fi
+				fi
+			done
+		fi
 		if [[ "$packagemake" == "true" ]]; then
 			cd "$tmpdir/$package/content"
 			tar -czf content-$arch.tar.gz .
@@ -604,6 +623,7 @@ shoppe_install() {
 			mkdir "$tmpdir/$package/topackage"
 			mv content-$arch.tar.gz "$tmpdir/$package/topackage"
 			mv "$tmpdir/$package/shoppepkg" "$tmpdir/$package/topackage"
+			[[ -e "$tmpdir/$package/optdepends" ]] && mv "$tmpdir/$package/optdepends" "$tmpdir/$package/$topackage"
 			tar -czf "$HOME/$package.tar.gz" -C "$tmpdir/$package/topackage" .
 			echo -e "$p_debug Package created. Path: $HOME/$package.tar.gz"
 		fi
@@ -741,7 +761,24 @@ shoppe_info() {
 		echo -e "License: $license"
 		[[ "$depends" ]] && echo -e "Dependencies: $depends"
 		[[ "$makedepends" ]] && echo -e "Make dependencies: $makedepends"
-		[[ "$optdepends" ]] && echo -e "Optional dependencies: $optdepends"
+		if [[ "$optdepends" ]] && [[ -e "$tmpdir/$package/optdepends" ]]; then
+			echo -e "$p_info Optional dependencies:"
+			for dep in $optdepends; do
+				if grep "^$dep " "$tmpdir/$package/optdepends" &>/dev/null; then
+					if grep "^$dep$" "$pkglist" &>/dev/null || grep "^$dep$" "$pkglist.frontend" &>/dev/null; then
+						echo "$(grep ^$dep $tmpdir/$package/optdepends) [Installed]"
+					else
+						grep "^$dep" "$tmpdir/$package/optdepends"
+					fi
+				else
+					if grep "^$dep$" "$pkglist" &>/dev/null || grep "^$dep$" "$pkglist.frontend" &>/dev/null; then
+						echo "$dep [Installed]"
+					else
+						echo "$dep"
+					fi
+				fi
+			done
+		fi
 		[[ "$provides" ]] && echo -e "Provides packages: $provides"
 	done
 	return 0
