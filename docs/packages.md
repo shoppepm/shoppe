@@ -22,6 +22,15 @@ See the example shoppe package below for more information.
 
 Simply add it to a repository (see: [Repositories](repositories.md)), add the repository and install with the -p switch, or use ``shoppe install /path/to/shoppepkg -p``.
 
+## Adding optional dependencies
+
+Add the optional dependencies to the optdepends variable, separated by spaces. To attach a description:
+
+1. Create a file named optdepends in the same directory as the shoppepkg (if not done already);
+2. Add "pkgname - description you want to give to the dependency" to the optdepends file.
+
+If no description is specified, only the dependency name is printed.
+
 ## Example shoppe package (and all of the variables)
 
 ```bash
@@ -34,7 +43,7 @@ pkgrel="1" # Package revision. This is automatically bumped every time you rebui
 license="GPL 3-Clause" # License. This is optional.
 url="https://github.com/knuxify/shoppe" # Project website. Optional. If this is an open-source project, link the source page.
 depends="bash git curl wget" # Dependencies, separated by spaces.
-# optdepends="" # Optional dependencies, separated by spaces.
+# optdepends="" # Optional dependencies, separated by spaces. See docs/packages.md for information on how to attach descriptions to the dependencies.
 makedepends="make" # Build dependencies, separated by spaces.
 provides="shoppe-git" # If this package provides the same functionality as another package, add it here. Packages are separated by spaces. Automatically adds the package to conflicts.
 #conflicts="" # Packages this package conflicts with, separated by spaces. Most of the time this will contain the rolling version of a package.
