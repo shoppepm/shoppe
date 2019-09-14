@@ -2,7 +2,7 @@
 # shellcheck disable=SC1090,SC2001,SC1091,SC2219
 ##
 ## shoppe - a portable package manager that integrates with your current package manager
-version="1.2.0"
+version="1.2.1"
 ##
 ## Licensed under the MIT License
 
