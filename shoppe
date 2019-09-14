@@ -49,7 +49,7 @@ skiperrors="false"
 [[ ! -e "$repolist" ]] && echo "http: https://raw.githubusercontent.com/shoppepm/shoppe-repos/master" > "$repolist"
 [[ ! -e "$pkglist.frontend" ]] && touch "$pkglist.frontend"
 [[ ! -e "$pkglist" ]] && echo "shoppe 0 $version" > "$pkglist"
-[[ ! -e "$custominstalldir" ]] && mkdir -p "$custominstalldir"
+[[ ! -z "$custominstalldir" ]] && [[ ! -e "$custominstalldir" ]] && mkdir -p "$custominstalldir"
 ! grep '^shoppe ' "$pkglist" &>/dev/null && echo "shoppe 0 $version" >> "$pkglist"
 
 ## Help (--help)
