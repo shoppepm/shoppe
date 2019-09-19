@@ -182,7 +182,7 @@ httpfetch_init() {
 	fi
 }
 httpfetch() {
-	if [[ "$httpfetch" == "curl" ]]; then curl --progress-bar ${*/\ -O\ /\ -o\ } && return 0 || return 1;
+	if [[ "$httpfetch" == "curl" ]]; then curl --progress-bar "${*/\ -O\ /\ -o\ }" && return 0 || return 1;
 	elif [[ "$httpfetch" == "wget" ]]; then wget $* && return 0 || return 1;
 	else return 1;
 	fi
@@ -270,7 +270,7 @@ pkg_fetch() {
 	case $repotofetch in
 		"local: "*) cp "${repotofetch/local\:\ /}/$package/shoppepkg" "$tmpdir/$package/" && success="1" && [[ "$forcebuild" == "true" ]] && [[ "$packagemake" != "true" ]] && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg";;
 		"http: "*) cp "$configdir/repofiles/$repo/$package/shoppepkg" "$tmpdir/$package/" && success="1" && [[ "$forcebuild" == "true" ]] && [[ "$packagemake" != "true" ]] && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg";;
-		"http-full: "*) httpfetch -q "${repotofetch/http\-full\:\ /}/$package/shoppepkg" -O "$tmpdir/$package/shoppepkg" && success="1" && [[ "$forcebuild" == "true" ]] && [[ "$packagemake" != "true" ]] && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg";;
+		"http-full: "*) httpfetch "${repotofetch/http\-full\:\ /}/$package/shoppepkg" -O "$tmpdir/$package/shoppepkg" && success="1" && [[ "$forcebuild" == "true" ]] && [[ "$packagemake" != "true" ]] && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg";;
 		*) echo -e "$p_debug Repo data file for id $repo does not contain repository path! Have you been tampering with the file? Run shoppe update to fix this.";;
 	esac
 	if [[ ! -e "$tmpdir/$package/optdepends" ]]; then
@@ -278,7 +278,7 @@ pkg_fetch() {
 		case $repotofetch in
 			"http: "*) [[ -e "$configdir/repofiles/$repo/$package/optdepends" ]] && cp "$configdir/repofiles/$repo/$package/optdepends" "$tmpdir/$package/" && osuccess='1';;
 			"local: "*) [[ -e "${repotofetch/local\:\ /}/$package/optdepends" ]] && cp "${repotofetch/local\:\ /}/$package/optdepends" "$tmpdir/$package/" && osuccess='1';;
-			"http-full: "*) httpfetch -q "${repotofetch/http\-full\:\ /}/$package/content-$arch.tar.gz" -O "$tmpdir/$package/content-$arch.tar.gz" && osuccess='1';;
+			"http-full: "*) httpfetch "${repotofetch/http\-full\:\ /}/$package/content-$arch.tar.gz" -O "$tmpdir/$package/content-$arch.tar.gz" && osuccess='1';;
 			*) echo -e "$p_debug Repo data file for id $repo does not contain repository path! Have you been tampering with the file? Run shoppe update to fix this.";;
 		esac
 	fi
@@ -300,7 +300,7 @@ pkg_fetch_content() {
 	success="0"
 	case $repotofetch in
 		"local: "*) [[ -e "${repotofetch/local\:\ /}/$package/content-$arch.tar.gz" ]] && cp "${repotofetch/local\:\ /}/$package/content-$arch.tar.gz" "$tmpdir/$package/" && success='1';;
-		"http: "*|"http-full: "*)  if httpfetch -q "${repotofetch/http\:\ /}/$package/content-$arch.tar.gz" -O "$tmpdir/$package/content-$arch.tar.gz"; then success='1'; else echo -e "$p_warn Prebuilt files not found, defaulting to build mode..." && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg"; fi;;
+		"http: "*|"http-full: "*)  if httpfetch "${repotofetch/http\:\ /}/$package/content-$arch.tar.gz" -O "$tmpdir/$package/content-$arch.tar.gz"; then success='1'; else echo -e "$p_warn Prebuilt files not found, defaulting to build mode..." && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg"; fi;;
 		*) echo -e "$p_debug Repo data file for id $repo does not contain repository path! Have you been tampering with the file? Run shoppe update to fix this.";;
 	esac
 	if [[ "$success" == "1" ]]; then return 0; else return 1; fi
@@ -699,8 +699,8 @@ shoppe_remove() {
 shoppe_update() {
 	[[ "$pm" ]] && echo -e "$p_info Fetching installed package list from frontend..." && frontend_harvest
 	[[ "$pm" ]] && $frontend_update
-	rm -rf "$configdir/repodata"
-	mkdir "$configdir/repodata"
+	mv "$configdir/repodata" "$tmpdir/repodata-bak"
+	mkdir -p "$configdir/repodata"
 	# For each repository, check the repository type and fetch it accordingly.
 	while IFS="" read -r line || [[ -n "$line" ]]; do
 		# See also: docs/repositories.md
@@ -709,15 +709,15 @@ shoppe_update() {
 			let repoID++
 			echo -e "$p_info Fetching repository $repoID..."
 			case $line in
-				"local: "*) cp "${line/local\:\ /}/pkglist" "$configdir/repodata/$repoID" && echo "$line" > "$configdir/repodata/tmp" && cat "$configdir/repodata/$repoID" >> "$configdir/repodata/tmp" && mv "$configdir/repodata/tmp" "$configdir/repodata/$repoID" && success="1" && echo -e "$p_info $repoID is $line";;
-				"http: "*) mv "$configdir/repodata/$repoID" "$configdir/repodata/$repoID-old" &>/dev/null; httpfetch -q "${line/http\:\ /}/pkglist" -O "$configdir/repodata/$repoID" && while read -re httpparse; do ! grep "$httpparse" "$configdir/repodata/$repoID-old" &>/dev/null && toparse="$toparse $(echo $httpparse | head -n1 | awk '{print $1;}')"; done < "$configdir/repodata/$repoID" && rm -rf "$configdir/repofiles/$repoID" && mkdir -p "$configdir/repofiles/$repoID" && echo -e "$p_info Fetching packages..." && for t in $toparse; do mkdir -p "$configdir/repofiles/$repoID/$t"; httpfetch "${line/http\:\ /}/$t/shoppepkg" -O "$configdir/repofiles/$repoID/$t/shoppepkg"; done && echo "$line" > "$configdir/repodata/tmp" && cat "$configdir/repodata/$repoID" >> "$configdir/repodata/tmp" && mv "$configdir/repodata/tmp" "$configdir/repodata/$repoID" &&  success="1" && echo -e "$p_debug $repoID is $line";;
-				"http-full: "*) httpfetch -q "${line/http\-full\:\ /}/pkglist" -O "$configdir/repodata/$repoID" && echo "$line" > "$configdir/repodata/tmp" && cat "$configdir/repodata/$repoID" >> "$configdir/repodata/tmp" && mv "$configdir/repodata/tmp" "$configdir/repodata/$repoID" &&  success="1" && echo -e "$p_debug $repoID is $line";;
+				"local: "*) cp "${line/local\:\ /}/pkglist" "$configdir/repodata/$repoID" && echo "$line" > "$configdir/repodata/tmp" && cat "$configdir/repodata/$repoID" >> "$configdir/repodata/tmp" && mv "$configdir/repodata/tmp" "$configdir/repodata/$repoID" && success="1" && echo -e "$p_success Succesfully fetched repository $repoID.";;
+				"http: "*) if [[ -e "$configdir/repodata-bak/$repoID" ]] && grep "^$line" "$configdir/repodata-bak/$repoID" &>/dev/null; then mv "$configdir/repodata-bak/$repoID" "$configdir/repodata/$repoID-old" &>/dev/null; else echo "$line" > "$configdir/repodata/$repoID"; fi; httpfetch "${line/http\:\ /}/pkglist" -O "$configdir/repodata/$repoID" && while read -re httpparse; do ! grep "$httpparse" "$configdir/repodata/$repoID-old" &>/dev/null && toparse="$toparse $(echo $httpparse | head -n1 | awk '{print $1;}')"; done < "$configdir/repodata/$repoID" && rm -rf "$configdir/repofiles/$repoID" && mkdir -p "$configdir/repofiles/$repoID" && echo -e "$p_info Fetching packages..." && for t in $toparse; do mkdir -p "$configdir/repofiles/$repoID/$t"; httpfetch "${line/http\:\ /}/$t/shoppepkg" -O "$configdir/repofiles/$repoID/$t/shoppepkg"; done && echo "$line" > "$configdir/repodata/tmp" && cat "$configdir/repodata/$repoID" >> "$configdir/repodata/tmp" && mv "$configdir/repodata/tmp" "$configdir/repodata/$repoID" &&  success="1" && echo -e "$p_success Successfully fetched repository $repoID.";;
+				"http-full: "*) httpfetch "${line/http\-full\:\ /}/pkglist" -O "$configdir/repodata/$repoID" && echo "$line" > "$configdir/repodata/tmp" && cat "$configdir/repodata/$repoID" >> "$configdir/repodata/tmp" && mv "$configdir/repodata/tmp" "$configdir/repodata/$repoID" &&  success="1" && echo -e "$p_success Successfully fetched repository $repoID.";;
 			esac
 			[[ "$success" == "0" ]] && let repoID-- && fail "Failed to fetch repository: $line"
 		fi
 	done < "$repolist"
 	[[ "$repoID" == "0" ]] && fail "No repositories were fetched."
-	echo -e "$p_success Update succeeded."
+	rm -rf "$tmpdir/repodata-bak"
 	# shoppe_update is often called in functions, so this has to be return and not exit:
 	return 0
 }
