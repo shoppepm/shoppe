@@ -9,7 +9,3 @@
 ## shoppe-utils
 
 - Add package conversion [1.3.0]
-
-## meta
-
-- Add some better way to skip tests for certain commits
