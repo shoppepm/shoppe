@@ -171,11 +171,21 @@ fail() {
 	echo -e "$p_error $*"
 	if [[ "$skiperrors" == "true" ]]; then echo -e "$p_warn --skip-errors passed, skipping error."; else exit 1; fi
 }
-wget --show-progress &> "$tmpdir/wgettest"
-grep "unrecognized option" "$tmpdir/wgettest" &>/dev/null && noshowprogress="true"
+httpfetch_init() {
+	if command -v curl &>/dev/null; then
+		httpfetch="curl"
+	elif command -v wget &>/dev/null; then
+		httpfetch="wget"
+	else
+		echo -e "$p_error Can't find any software for fetching files from the internet! Please get curl or wget."
+		exit 1
+	fi
+}
 httpfetch() {
-	# This is a frontend for wget, and might support curl in the future as well.
-	if [[ "$noshowprogress" == "true" ]]; then wget -q $*; else wget -q --progress=bar:force --show-progress $*; fi
+	if [[ "$httpfetch" == "curl" ]]; then curl --progress-bar ${*/\ -O\ /\ -o\ } && return 0 || return 1;
+	elif [[ "$httpfetch" == "wget" ]]; then wget $* && return 0 || return 1;
+	else return 1;
+	fi
 }
 # shellcheck disable=SC2154
 get_source() {
@@ -860,6 +870,7 @@ for switch in $switches; do
 		'+version'|'+v'|'--version'|'-v') echo "shoppe $version"; exit 0;;
 	esac
 done
+httpfetch_init
 auth_init
 [[ "$skipfrontend" != "true" ]] && frontend_init
 $command
