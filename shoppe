@@ -128,7 +128,7 @@ Options:
 		Creates a package.
 
 	--skip-errors
-		Do not when errors occur. Not reccomended.
+		Do not exit when errors occur. Not reccomended.
 "
 exit 0
 }
