@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # shoppe-utils - additional utilities, mainly for package/repo maintainers
-version="1.2.0"
+version="1.2.2"
 # Licensed under the MIT license
 #
 ## Code guidelines
