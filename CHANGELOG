@@ -1,3 +1,14 @@
+## 1.2.2
+
+### IMPROVEMENT/CODE:
+
+- Improved the httpfetch function
+
+### FIX:
+
+- Fixed providedpkglist path
+- Add missing word to manpage
+
 ## 1.2.1
 
 ### NEW:
