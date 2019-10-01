@@ -1,13 +1,22 @@
 ## 1.2.2
 
+### NEW:
+
+- Added commit variable which allows the user to checkout certain commit in git sources (12e29f55cfb5aafc0513d5f7279a0c36987b3d2b)
+
+### FEATURE:
+
+- Deprecated git-tag, now git can take tags (97e2f6a117f27188fd3ae71faeda3d4a1b0180ac)
+
 ### IMPROVEMENT/CODE:
 
-- Improved the httpfetch function
+- Improved the httpfetch function (multiple commits)
+- Improved the checks that figure out if shoppe is in the pkglist or not (ce48c7ea26cd172a2bccd7415e1bbf2d3a689c57)
 
 ### FIX:
 
-- Fixed providedpkglist path
-- Add missing word to manpage
+- Fixed providedpkglist path (3f7b62c922fa38b42bb03a9c422dbe3f76251b55)
+- Added missing word to manpage (87b99cd2890f2ff2af6827582c10a9f17c6ae96e)
 
 ## 1.2.1
 
