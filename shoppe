@@ -50,8 +50,9 @@ skiperrors="false"
 [[ ! -e "$pkglist.frontend" ]] && touch "$pkglist.frontend"
 [[ ! -e "$pkglist" ]] && echo "shoppe 0 $version" > "$pkglist"
 [[ ! -z "$custominstalldir" ]] && [[ ! -e "$custominstalldir" ]] && mkdir -p "$custominstalldir"
-! grep '^shoppe ' "$pkglist" &>/dev/null && echo "shoppe 0 $version" >> "$pkglist"
-
+if [[ "$*" != "install shoppe"* ]] && ! grep '^shoppe ' "$pkglist" &>/dev/null && ! grep '^shoppe-mc ' "$pkglist" &>/dev/null && ! grep '^shoppe-git ' "$pkglist" &>/dev/null; then
+	echo "shoppe 0 $version" >> "$pkglist"
+fi
 ## Help (--help)
 shoppe_help() { echo "\
 Usage: shoppe function [options]
