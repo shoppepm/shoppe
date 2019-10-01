@@ -2,7 +2,7 @@
 # shellcheck disable=SC1090,SC2001,SC1091,SC2219
 ##
 ## shoppe - a portable package manager that integrates with your current package manager
-version="1.2.1"
+version="1.2.2"
 ##
 ## Licensed under the MIT License
 
@@ -34,7 +34,7 @@ configdir="$HOME/.config/shoppe"
 repolist="$configdir/repositories"
 pkglist="$configdir/pkglist"
 deplist="$configdir/deplist"
-providedpkglist="$providedpkglist"
+providedpkglist="$configdir/providedpkglist"
 pkginfo="$configdir/pkginfo"
 tmpdir="/tmp/shoppe"
 
@@ -50,8 +50,9 @@ skiperrors="false"
 [[ ! -e "$pkglist.frontend" ]] && touch "$pkglist.frontend"
 [[ ! -e "$pkglist" ]] && echo "shoppe 0 $version" > "$pkglist"
 [[ ! -z "$custominstalldir" ]] && [[ ! -e "$custominstalldir" ]] && mkdir -p "$custominstalldir"
-! grep '^shoppe ' "$pkglist" &>/dev/null && echo "shoppe 0 $version" >> "$pkglist"
-
+if [[ "$*" != "install shoppe"* ]] && ! grep '^shoppe ' "$pkglist" &>/dev/null && ! grep '^shoppe-mc ' "$pkglist" &>/dev/null && ! grep '^shoppe-git ' "$pkglist" &>/dev/null; then
+	echo "shoppe 0 $version" >> "$pkglist"
+fi
 ## Help (--help)
 shoppe_help() { echo "\
 Usage: shoppe function [options]
@@ -128,7 +129,7 @@ Options:
 		Creates a package.
 
 	--skip-errors
-		Do not when errors occur. Not reccomended.
+		Do not exit when errors occur. Not reccomended.
 "
 exit 0
 }
@@ -171,11 +172,21 @@ fail() {
 	echo -e "$p_error $*"
 	if [[ "$skiperrors" == "true" ]]; then echo -e "$p_warn --skip-errors passed, skipping error."; else exit 1; fi
 }
-wget --show-progress &> "$tmpdir/wgettest"
-grep "unrecognized option" "$tmpdir/wgettest" &>/dev/null && noshowprogress="true"
+httpfetch_init() {
+	if command -v curl &>/dev/null; then
+		httpfetch="curl"
+	elif command -v wget &>/dev/null; then
+		httpfetch="wget"
+	else
+		echo -e "$p_error Can't find any software for fetching files from the internet! Please get curl or wget."
+		exit 1
+	fi
+}
 httpfetch() {
-	# This is a frontend for wget, and might support curl in the future as well.
-	if [[ "$noshowprogress" == "true" ]]; then wget -q $*; else wget -q --progress=bar:force --show-progress $*; fi
+	if [[ "$httpfetch" == "curl" ]]; then curlable="$(echo $* | sed 's/\ -O\ /\ -o\ /g')"; curl --progress-bar $curlable && return 0 || return 1;
+	elif [[ "$httpfetch" == "wget" ]]; then wget $* && return 0 || return 1;
+	else return 1;
+	fi
 }
 # shellcheck disable=SC2154
 get_source() {
@@ -190,10 +201,11 @@ get_source() {
 			*.zip) sourcetype="zip"
         esac
     fi
+	[[ "$sourcetype" == "git-tag" ]] && sourcetype="git"
     # shellcheck disable=SC2154
     case $sourcetype in
-        git) git clone "$source" "source";;
-        git-tag) git clone --branch "$tag" "$source" "source";;
+        git) if [[ "$tag" ]]; then git clone --branch "$tag" "$source" "source"; else git clone "$source" "source"; fi
+			if [[ "$commit" ]]; then cd source; git checkout "$commit"; cd ..; fi;;
         tar) httpfetch "$source"; mkdir source; tar xvf ./* -C source;;
         targz) httpfetch "$source"; mkdir source; tar xzf ./* -C source;;
         #gz) httpfetch "$source"; gunzip ./*;;
@@ -260,7 +272,7 @@ pkg_fetch() {
 	case $repotofetch in
 		"local: "*) cp "${repotofetch/local\:\ /}/$package/shoppepkg" "$tmpdir/$package/" && success="1" && [[ "$forcebuild" == "true" ]] && [[ "$packagemake" != "true" ]] && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg";;
 		"http: "*) cp "$configdir/repofiles/$repo/$package/shoppepkg" "$tmpdir/$package/" && success="1" && [[ "$forcebuild" == "true" ]] && [[ "$packagemake" != "true" ]] && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg";;
-		"http-full: "*) httpfetch -q "${repotofetch/http\-full\:\ /}/$package/shoppepkg" -O "$tmpdir/$package/shoppepkg" && success="1" && [[ "$forcebuild" == "true" ]] && [[ "$packagemake" != "true" ]] && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg";;
+		"http-full: "*) httpfetch "${repotofetch/http\-full\:\ /}/$package/shoppepkg" -O "$tmpdir/$package/shoppepkg" && success="1" && [[ "$forcebuild" == "true" ]] && [[ "$packagemake" != "true" ]] && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg";;
 		*) echo -e "$p_debug Repo data file for id $repo does not contain repository path! Have you been tampering with the file? Run shoppe update to fix this.";;
 	esac
 	if [[ ! -e "$tmpdir/$package/optdepends" ]]; then
@@ -268,7 +280,7 @@ pkg_fetch() {
 		case $repotofetch in
 			"http: "*) [[ -e "$configdir/repofiles/$repo/$package/optdepends" ]] && cp "$configdir/repofiles/$repo/$package/optdepends" "$tmpdir/$package/" && osuccess='1';;
 			"local: "*) [[ -e "${repotofetch/local\:\ /}/$package/optdepends" ]] && cp "${repotofetch/local\:\ /}/$package/optdepends" "$tmpdir/$package/" && osuccess='1';;
-			"http-full: "*) httpfetch -q "${repotofetch/http\-full\:\ /}/$package/content-$arch.tar.gz" -O "$tmpdir/$package/content-$arch.tar.gz" && osuccess='1';;
+			"http-full: "*) httpfetch "${repotofetch/http\-full\:\ /}/$package/content-$arch.tar.gz" -O "$tmpdir/$package/content-$arch.tar.gz" && osuccess='1';;
 			*) echo -e "$p_debug Repo data file for id $repo does not contain repository path! Have you been tampering with the file? Run shoppe update to fix this.";;
 		esac
 	fi
@@ -290,7 +302,7 @@ pkg_fetch_content() {
 	success="0"
 	case $repotofetch in
 		"local: "*) [[ -e "${repotofetch/local\:\ /}/$package/content-$arch.tar.gz" ]] && cp "${repotofetch/local\:\ /}/$package/content-$arch.tar.gz" "$tmpdir/$package/" && success='1';;
-		"http: "*|"http-full: "*)  if httpfetch -q "${repotofetch/http\:\ /}/$package/content-$arch.tar.gz" -O "$tmpdir/$package/content-$arch.tar.gz"; then success='1'; else echo -e "$p_warn Prebuilt files not found, defaulting to build mode..." && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg"; fi;;
+		"http: "*|"http-full: "*)  if httpfetch "${repotofetch/http\:\ /}/$package/content-$arch.tar.gz" -O "$tmpdir/$package/content-$arch.tar.gz"; then success='1'; else echo -e "$p_warn Prebuilt files not found, defaulting to build mode..." && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg"; fi;;
 		*) echo -e "$p_debug Repo data file for id $repo does not contain repository path! Have you been tampering with the file? Run shoppe update to fix this.";;
 	esac
 	if [[ "$success" == "1" ]]; then return 0; else return 1; fi
@@ -302,7 +314,7 @@ pkg_cleanup() {
 	# This function cleans up after a shoppe package.
 	# Use this when you're running a loop that sources multiple shoppepkgs.
 	# Usage: pkg_cleanup
-	unset pkgname pkgdesc pkgarch pkgver revision license url depends optdepends makedepends provides conflicts archdependent source sourcetype tag
+	unset pkgname pkgdesc pkgarch pkgver revision license url depends optdepends makedepends provides conflicts archdependent source sourcetype tag commit
 	unset -f shoppepkg_preinstall shoppepkg_build shoppepkg_postinstall
 	[[ "$currentskipfrontend" == "true" ]] && [[ -z "$pm" ]] && pm="$oldpm"
 	unset nobuild current_uptodate currentskipfrontend
@@ -418,6 +430,16 @@ yay_query() {
 	if [[ -z "$(cat $tmpdir/err)" ]]; then return 1; else return 0; fi
 }
 
+zypper_query() {
+	# Workaround for buggy zypper behavior (yay will return 0 even if the search has failed, also doesn't work with ^pkgname$ regex).
+	# Usage: zypper_query <package>
+	zqinput="${1/\^/}"
+	zqinput="${zqinput/\$/}"
+	zypper info "$zqinput" &>"$tmpdir/err"
+	# This check for a separator that separates some package info in order to prevent false positives when using zypper in different languages. If zypper is only available in English, replace this with "package * not found".
+	if grep "\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-" "$tmpdir/err" &>/dev/null; then return 0; else return 1; fi
+}
+
 frontend_init() {
 	# This function initializes the frontend.
 	# Usage: frontend_init
@@ -479,7 +501,7 @@ frontend_init() {
 			frontend_remove="$suauth $pm remove"
 			frontend_update="$suauth dnf clean expire-cache && $suauth dnf check-update"
 			frontend_upgrade="$suauth $pm update"
-			frontend_query="$pm info"
+			frontend_query="zypper_query"
 			frontend_listall="rpm -qa --qf '%{NAME}\n'"
 			frontend_noconfirm="--non-interactive"
 			;;
@@ -689,8 +711,8 @@ shoppe_remove() {
 shoppe_update() {
 	[[ "$pm" ]] && echo -e "$p_info Fetching installed package list from frontend..." && frontend_harvest
 	[[ "$pm" ]] && $frontend_update
-	rm -rf "$configdir/repodata"
-	mkdir "$configdir/repodata"
+	mv "$configdir/repodata" "$tmpdir/repodata-bak"
+	mkdir -p "$configdir/repodata"
 	# For each repository, check the repository type and fetch it accordingly.
 	while IFS="" read -r line || [[ -n "$line" ]]; do
 		# See also: docs/repositories.md
@@ -699,15 +721,15 @@ shoppe_update() {
 			let repoID++
 			echo -e "$p_info Fetching repository $repoID..."
 			case $line in
-				"local: "*) cp "${line/local\:\ /}/pkglist" "$configdir/repodata/$repoID" && echo "$line" > "$configdir/repodata/tmp" && cat "$configdir/repodata/$repoID" >> "$configdir/repodata/tmp" && mv "$configdir/repodata/tmp" "$configdir/repodata/$repoID" && success="1" && echo -e "$p_info $repoID is $line";;
-				"http: "*) mv "$configdir/repodata/$repoID" "$configdir/repodata/$repoID-old" &>/dev/null; httpfetch -q "${line/http\:\ /}/pkglist" -O "$configdir/repodata/$repoID" && while read -re httpparse; do ! grep "$httpparse" "$configdir/repodata/$repoID-old" &>/dev/null && toparse="$toparse $(echo $httpparse | head -n1 | awk '{print $1;}')"; done < "$configdir/repodata/$repoID" && rm -rf "$configdir/repofiles/$repoID" && mkdir -p "$configdir/repofiles/$repoID" && echo -e "$p_info Fetching packages..." && for t in $toparse; do mkdir -p "$configdir/repofiles/$repoID/$t"; httpfetch "${line/http\:\ /}/$t/shoppepkg" -O "$configdir/repofiles/$repoID/$t/shoppepkg"; done && echo "$line" > "$configdir/repodata/tmp" && cat "$configdir/repodata/$repoID" >> "$configdir/repodata/tmp" && mv "$configdir/repodata/tmp" "$configdir/repodata/$repoID" &&  success="1" && echo -e "$p_debug $repoID is $line";;
-				"http-full: "*) httpfetch -q "${line/http\-full\:\ /}/pkglist" -O "$configdir/repodata/$repoID" && echo "$line" > "$configdir/repodata/tmp" && cat "$configdir/repodata/$repoID" >> "$configdir/repodata/tmp" && mv "$configdir/repodata/tmp" "$configdir/repodata/$repoID" &&  success="1" && echo -e "$p_debug $repoID is $line";;
+				"local: "*) cp "${line/local\:\ /}/pkglist" "$configdir/repodata/$repoID" && echo "$line" > "$configdir/repodata/tmp" && cat "$configdir/repodata/$repoID" >> "$configdir/repodata/tmp" && mv "$configdir/repodata/tmp" "$configdir/repodata/$repoID" && success="1" && echo -e "$p_success Succesfully fetched repository $repoID.";;
+				"http: "*) if [[ -e "$configdir/repodata-bak/$repoID" ]] && grep "^$line" "$configdir/repodata-bak/$repoID" &>/dev/null; then mv "$configdir/repodata-bak/$repoID" "$configdir/repodata/$repoID-old" &>/dev/null; else echo "$line" > "$configdir/repodata/$repoID"; fi; httpfetch "${line/http\:\ /}/pkglist" -O "$configdir/repodata/$repoID" && while read -re httpparse; do ! grep "$httpparse" "$configdir/repodata/$repoID-old" &>/dev/null && toparse="$toparse $(echo $httpparse | head -n1 | awk '{print $1;}')"; done < "$configdir/repodata/$repoID" && rm -rf "$configdir/repofiles/$repoID" && mkdir -p "$configdir/repofiles/$repoID" && echo -e "$p_info Fetching packages..." && for t in $toparse; do if [[ "$t" != "http: "* ]]; then mkdir -p "$configdir/repofiles/$repoID/$t"; httpfetch "${line/http\:\ /}/$t/shoppepkg" -O "$configdir/repofiles/$repoID/$t/shoppepkg"; fi; done && echo "$line" > "$configdir/repodata/tmp" && cat "$configdir/repodata/$repoID" >> "$configdir/repodata/tmp" && mv "$configdir/repodata/tmp" "$configdir/repodata/$repoID" &&  success="1" && echo -e "$p_success Successfully fetched repository $repoID.";;
+				"http-full: "*) httpfetch "${line/http\-full\:\ /}/pkglist" -O "$configdir/repodata/$repoID" && echo "$line" > "$configdir/repodata/tmp" && cat "$configdir/repodata/$repoID" >> "$configdir/repodata/tmp" && mv "$configdir/repodata/tmp" "$configdir/repodata/$repoID" &&  success="1" && echo -e "$p_success Successfully fetched repository $repoID.";;
 			esac
 			[[ "$success" == "0" ]] && let repoID-- && fail "Failed to fetch repository: $line"
 		fi
 	done < "$repolist"
 	[[ "$repoID" == "0" ]] && fail "No repositories were fetched."
-	echo -e "$p_success Update succeeded."
+	rm -rf "$tmpdir/repodata-bak"
 	# shoppe_update is often called in functions, so this has to be return and not exit:
 	return 0
 }
@@ -860,6 +882,7 @@ for switch in $switches; do
 		'+version'|'+v'|'--version'|'-v') echo "shoppe $version"; exit 0;;
 	esac
 done
+httpfetch_init
 auth_init
 [[ "$skipfrontend" != "true" ]] && frontend_init
 $command
