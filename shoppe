@@ -201,10 +201,10 @@ get_source() {
 			*.zip) sourcetype="zip"
         esac
     fi
+	[[ "$sourcetype" == "git-tag" ]] && sourcetype="git"
     # shellcheck disable=SC2154
     case $sourcetype in
-        git) git clone "$source" "source";;
-        git-tag) git clone --branch "$tag" "$source" "source";;
+        git) if [[ "$tag" ]]; then git clone --branch "$tag" "$source" "source"; else git clone "$source" source; fi;;
         tar) httpfetch "$source"; mkdir source; tar xvf ./* -C source;;
         targz) httpfetch "$source"; mkdir source; tar xzf ./* -C source;;
         #gz) httpfetch "$source"; gunzip ./*;;

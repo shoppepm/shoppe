@@ -50,10 +50,12 @@ provides="shoppe-git" # If this package provides the same functionality as anoth
 
 # Building/installation instructions
 source="https://github.com/shoppepm/shoppe" # Source link.
-sourcetype="git-tag" # Source type, defines how to get the source.
+sourcetype="git" # Source type, defines how to get the source.
 # The source can be one of the following:
-# git - git repository (clone with git) (optional: a commit variable)
-# git-tag - github tag (clone with git) (requires tag variable, can also be used for getting certain branches)
+# git - git repository (clone with git)
+# Optional variables for git:
+# commit="<commit to clone here>"
+# tag="<tag or branch to clone here>"
 # compressed - compressed file (download with wget) (requires source to end with the right file extention)
 # If you need to force a compression method, you can use one of those source types:
 # tar, targz, gz, tarxz
