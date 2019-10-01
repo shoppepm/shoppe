@@ -428,6 +428,16 @@ yay_query() {
 	if [[ -z "$(cat $tmpdir/err)" ]]; then return 1; else return 0; fi
 }
 
+zypper_query() {
+	# Workaround for buggy zypper behavior (yay will return 0 even if the search has failed, also doesn't work with ^pkgname$ regex).
+	# Usage: zypper_query <package>
+	zqinput="${1/\^/}"
+	zqinput="${zqinput/\$/}"
+	zypper info "$zqinput" &>"$tmpdir/err"
+	# This check for a separator that separates some package info in order to prevent false positives when using zypper in different languages. If zypper is only available in English, replace this with "package * not found".
+	if grep "\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-" "$tmpdir/err" &>/dev/null; then return 0; else return 1; fi
+}
+
 frontend_init() {
 	# This function initializes the frontend.
 	# Usage: frontend_init
@@ -489,7 +499,7 @@ frontend_init() {
 			frontend_remove="$suauth $pm remove"
 			frontend_update="$suauth dnf clean expire-cache && $suauth dnf check-update"
 			frontend_upgrade="$suauth $pm update"
-			frontend_query="$pm info"
+			frontend_query="zypper_query"
 			frontend_listall="rpm -qa --qf '%{NAME}\n'"
 			frontend_noconfirm="--non-interactive"
 			;;
