@@ -34,7 +34,7 @@ pkg_cleanup() {
     # This function cleans up after a shoppe package.
     # Use this when you're running a loop that sources multiple shoppepkgs.
     # Usage: pkg_cleanup
-    unset pkgname pkgdesc pkgarch pkgver revision license url depends optional makedepends conflicts archdependent source sourcetype tag
+    unset pkgname pkgdesc pkgarch pkgver revision license url depends optional makedepends conflicts archdependent source sourcetype tag commit
     unset -f shoppepkg_preinstall shoppepkg_build shoppepkg_postinstall
     unset nobuild current_uptodate
 }
@@ -186,7 +186,7 @@ utils_pkg_validate() {
 		for variable in pkgname pkgdesc pkgver pkgarch source sourcetype; do
 			[[ -z "${!variable}" ]] && echo -e "$p_error Missing required variable: $variable" && currentfail='1'
 		done
-		[[ "$sourcetype" == "git-tag" ]] && [[ -z "$tag" ]] && echo -e "$p_error Source type is git-tag but no tag is provided!" && currentfail='1'
+		[[ "$sourcetype" == "git-tag" ]] && echo -e "$p_warn git-tag was deprecated and git can now accept a tag variable."
 		! type -t shoppepkg_build &>/dev/null && echo -e "$p_error shoppepkg_build function does not exist!" && currentfail=1
 		if [[ "$currentfail" == "1" ]]; then let failure++; else let success++; fi
 	done
