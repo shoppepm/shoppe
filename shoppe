@@ -204,7 +204,8 @@ get_source() {
 	[[ "$sourcetype" == "git-tag" ]] && sourcetype="git"
     # shellcheck disable=SC2154
     case $sourcetype in
-        git) if [[ "$tag" ]]; then git clone --branch "$tag" "$source" "source"; else git clone "$source" source; fi;;
+        git) if [[ "$tag" ]]; then git clone --branch "$tag" "$source" "source"; else git clone "$source" "source"; fi
+			if [[ "$commit" ]]; then cd source; git checkout "$commit"; cd ..; fi;;
         tar) httpfetch "$source"; mkdir source; tar xvf ./* -C source;;
         targz) httpfetch "$source"; mkdir source; tar xzf ./* -C source;;
         #gz) httpfetch "$source"; gunzip ./*;;
