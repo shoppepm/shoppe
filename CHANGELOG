@@ -18,6 +18,10 @@
 - Fixed providedpkglist path (3f7b62c922fa38b42bb03a9c422dbe3f76251b55)
 - Added missing word to manpage (87b99cd2890f2ff2af6827582c10a9f17c6ae96e)
 
+### FRONTEND/FIX:
+
+- Fixed zypper query always returning 0 (ef8b387c3ae5193fde9110e1574d7de44138ade1)
+
 ## 1.2.1
 
 ### NEW:
