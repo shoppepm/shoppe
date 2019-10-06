@@ -430,6 +430,14 @@ yay_query() {
 	if [[ -z "$(cat $tmpdir/err)" ]]; then return 1; else return 0; fi
 }
 
+dnf_query() {
+	# Workaround for buggy dnf/yum behavior (doesn't work with ^pkgname$ regex).
+	# Usage: dnf_query <package>
+	dqinput="${1/\^/}"
+	dqinput="${dqinput/\$/}"
+	$pm info "$dqinput"
+}
+
 zypper_query() {
 	# Workaround for buggy zypper behavior (yay will return 0 even if the search has failed, also doesn't work with ^pkgname$ regex).
 	# Usage: zypper_query <package>
@@ -469,13 +477,22 @@ frontend_init() {
 			frontend_listall="apt-cache pkgnames" # TODO: This only shows package names but not versions. Fix that, eventually.
 			frontend_noconfirm="--yes --force-yes"
 			;;
-		dnf|yum) # dnf/yum (Fedora, CentOS, Red Hat and related)
+		dnf) # dnf (Fedora)
 			frontend_install="$suauth $pm install"
 			frontend_remove="$suauth $pm remove"
-			frontend_update="$suauth $pm update"
+			frontend_update="$suauth $pm check-update 1>/dev/null"
 			frontend_upgrade="$suauth $pm upgrade"
-			frontend_query="$pm search"
-			frontend_listall="rpm -qa | sed -i 's/\:/\ 0\ /g'"
+			frontend_query="dnf_query"
+			frontend_listall="rpm -qa --qf '%{NAME}\n'"
+			frontend_noconfirm="-y"
+			;;
+		yum) # yum (Fedora, CentOS, Red Hat and related)
+			frontend_install="$suauth $pm install"
+			frontend_remove="$suauth $pm remove"
+			frontend_update="$suauth $pm check-update 1>/dev/null"
+			frontend_upgrade="$suauth $pm update"
+			frontend_query="dnf_query"
+			frontend_listall="rpm -qa --qf '%{NAME}\n'"
 			frontend_noconfirm="-y"
 			;;
 		yay|yaourt|pacaur) # AUR helpers (Arch Linux)
@@ -710,7 +727,7 @@ shoppe_remove() {
 # Update repository info.
 shoppe_update() {
 	[[ "$pm" ]] && echo -e "$p_info Fetching installed package list from frontend..." && frontend_harvest
-	[[ "$pm" ]] && $frontend_update
+	[[ "$pm" ]] && echo -e "$p_info Updating frontend repositories..." && $frontend_update
 	mv "$configdir/repodata" "$tmpdir/repodata-bak"
 	mkdir -p "$configdir/repodata"
 	# For each repository, check the repository type and fetch it accordingly.
