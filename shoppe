@@ -130,6 +130,9 @@ Options:
 
 	--skip-errors
 		Do not exit when errors occur. Not reccomended.
+
+	--skip-frontend-query
+		Automatically assume all packages are available from the frontend.
 "
 exit 0
 }
@@ -309,6 +312,10 @@ pkg_fetch_content() {
 }
 
 # Package helper functions
+
+donothing() {
+	return 0
+}
 
 pkg_cleanup() {
 	# This function cleans up after a shoppe package.
@@ -553,6 +560,10 @@ frontend_init() {
 			frontend_remove="$frontend_remove $frontend_noconfirm"
 			frontend_upgrade="$frontend_upgrade $frontend_noconfirm"
 		fi
+	fi
+	if [[ "$skipfrontendquery" == "true" ]]; then
+		echo -e "$p_warn The --skip-frontend-query switch was passed. Shoppe will automatically assume that all packages are available in the frontend."
+		frontend_query="donothing"
 	fi
 }
 
@@ -898,6 +909,7 @@ for switch in $switches; do
 	case $switch in
 		'+skipfrontend'|'+sf'|'--skip-frontend'|'-s') skipfrontend="true";;
 		'--skip-frontend-for-chosen-packages'|'-c') skipfrontendforchosenpkgs="true";;
+		'--skip-frontend-query') skipfrontendquery="true";;
 		'+skiperrors'|'+se'|'--skip-errors') skiperrors="true";;
 		'+noconfirm'|'+nc'|'--noconfirm'|'-y') noconfirm="true";;
 		'+forcebuild'|'+fb'|'--forcebuild'|'-b') nobuild="false"; forcebuild="true";;
