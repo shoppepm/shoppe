@@ -2,7 +2,7 @@
 # shellcheck disable=SC1090,SC2001,SC1091,SC2219
 ##
 ## shoppe - a portable package manager that integrates with your current package manager
-version="1.2.2"
+version="1.3.0"
 ##
 ## Licensed under the MIT License
 
@@ -316,6 +316,7 @@ pkg_cleanup() {
 	# Usage: pkg_cleanup
 	unset pkgname pkgdesc pkgarch pkgver revision license url depends optdepends makedepends provides conflicts archdependent source sourcetype tag commit
 	unset -f shoppepkg_preinstall shoppepkg_build shoppepkg_postinstall
+	unset group optgroup
 	[[ "$currentskipfrontend" == "true" ]] && [[ -z "$pm" ]] && pm="$oldpm"
 	unset nobuild current_uptodate currentskipfrontend
 	[[ "$forcebuild" == "true" ]] && nobuild="false"
@@ -333,49 +334,51 @@ pkg_install() {
 	[[ "$package" != "$pkgname" ]] && echo -e "$p_debug Package name and pkgname do not match (expected $package, got $pkgname). Please contact the package's maintainer."
 	contentdir="$tmpdir/$package/content"
 	sourcedir="$tmpdir/$package/source"
-	type -t shoppepkg_preinstall &>/dev/null && echo -e "  - $p_info Running pre-install..." && shoppepkg_preinstall
-	if [[ "$nobuild" == "false" ]]; then
-		type -t shoppepkg_build &>/dev/null && echo -e "  - $p_info Building..." && ! shoppepkg_build && fail "Failed to build $package."
-		cd "$tmpdir/$package"
-	else
-		contentchecksumvar="content_${arch}_checksum"
-		mkdir "$tmpdir/$package/content"
-		# shellcheck disable=SC2154
-		if [[ "$(sha512sum content-$arch.tar.gz | sed 's/\*/\ /g')" == "${!contentchecksumvar}" ]]; then
-			! tar -xzf content-$arch.tar.gz -C "$tmpdir/$package/content" && fail "Failed to extract $package."
+	if [[ ! "$group" ]]; then
+		type -t shoppepkg_preinstall &>/dev/null && echo -e "  - $p_info Running pre-install..." && shoppepkg_preinstall
+		if [[ "$nobuild" == "false" ]]; then
+			type -t shoppepkg_build &>/dev/null && echo -e "  - $p_info Building..." && ! shoppepkg_build && fail "Failed to build $package."
+			cd "$tmpdir/$package"
 		else
-			echo -e "$p_warn Package checksum (${!contentchecksumvar}) does not match the content tarball's checksum ($(sha512sum content-$arch.tar.gz | sed 's/\*/\ /g'))."
-			yesnotxt="Install anyways (not reccomended)?" yesno n
-			if [[ "$choice" == "yes" ]]; then
-				if tar -xzf content-$arch.tar.gz -C "$tmpdir/$package/content"; then
-					echo -e "$p_info Successfully extracted package."
-				else
-					fail "Failed to extract $package."
-				fi
+			contentchecksumvar="content_${arch}_checksum"
+			mkdir "$tmpdir/$package/content"
+			# shellcheck disable=SC2154
+			if [[ "$(sha512sum content-$arch.tar.gz | sed 's/\*/\ /g')" == "${!contentchecksumvar}" ]]; then
+				! tar -xzf content-$arch.tar.gz -C "$tmpdir/$package/content" && fail "Failed to extract $package."
 			else
-				fail "Failed to install $package."
+				echo -e "$p_warn Package checksum (${!contentchecksumvar}) does not match the content tarball's checksum ($(sha512sum content-$arch.tar.gz | sed 's/\*/\ /g'))."
+				yesnotxt="Install anyways (not reccomended)?" yesno n
+				if [[ "$choice" == "yes" ]]; then
+					if tar -xzf content-$arch.tar.gz -C "$tmpdir/$package/content"; then
+						echo -e "$p_info Successfully extracted package."
+					else
+						fail "Failed to extract $package."
+					fi
+				else
+					fail "Failed to install $package."
+				fi
 			fi
 		fi
+		! cd content && fail "Failed to install $package."
+		if [[ -z "$custominstalldir" ]]; then
+			! $suauth cp -rf . / && fail "Failed to install $package."
+		else
+			! $suauth cp -rf . "$custominstalldir/" && fail "Failed to install $package."
+		fi
+		cd "$tmpdir/$package"
+		[[ -e "$pkginfo/$package" ]] && rm -rf "${pkginfo:?}/${package:?}"
+		mkdir "$pkginfo/$package"
+		shopt -s globstar
+		[[ -e "$pkginfo/$package/content" ]] && rm "$pkginfo/$package/content"
+		for file in "$tmpdir/$package/content"/**; do
+			[[ "$custominstalldir" ]] && $suauth ln -s "$file" "${file/$PWD\/content/}"
+			# This doesn't include directories that are made by the package,
+			# but that's still better than adding the entire / directory.
+			[[ -f "$file" ]] && echo "${file/$PWD\/content/}" >> "$pkginfo/$package/content"
+		done
+		shopt -u globstar
+		type -t shoppepkg_postinstall &>/dev/null && echo -e "  - $p_info Running post-install..." && ! shoppepkg_postinstall && echo -e "$p_warn Post-install script failed, but package's files were already copied! It is reccomended to reinstall the package, and if that doesn't help, contact the package's maintainer."
 	fi
-	! cd content && fail "Failed to install $package."
-	if [[ -z "$custominstalldir" ]]; then
-		! $suauth cp -rf . / && fail "Failed to install $package."
-	else
-		! $suauth cp -rf . "$custominstalldir/" && fail "Failed to install $package."
-	fi
-	cd "$tmpdir/$package"
-	[[ -e "$pkginfo/$package" ]] && rm -rf "${pkginfo:?}/${package:?}"
-	mkdir "$pkginfo/$package"
-	shopt -s globstar
-	[[ -e "$pkginfo/$package/content" ]] && rm "$pkginfo/$package/content"
-	for file in "$tmpdir/$package/content"/**; do
-		[[ "$custominstalldir" ]] && $suauth ln -s "$file" "${file/$PWD\/content/}"
-		# This doesn't include directories that are made by the package,
-		# but that's still better than adding the entire / directory.
-		[[ -f "$file" ]] && echo "${file/$PWD\/content/}" >> "$pkginfo/$package/content"
-	done
-	shopt -u globstar
-	type -t shoppepkg_postinstall &>/dev/null && echo -e "  - $p_info Running post-install..." && ! shoppepkg_postinstall && echo -e "$p_warn Post-install script failed, but package's files were already copied! It is reccomended to reinstall the package, and if that doesn't help, contact the package's maintainer."
 	if grep "^$package " "$pkglist" &>/dev/null; then
 		sed "/^$package\ /d" "$pkglist" > "${pkglist}-tmp"
 		mv "${pkglist}-tmp" "$pkglist"
@@ -584,6 +587,11 @@ shoppe_install() {
 			[[ -z "$pm" ]] && command -v "$package" &>/dev/null && echo -e "$p_info Package $package is already installed, skipping..." && tocheck="${tocheck/$package/}" && continue
 			pkg_fetch
 			source "$tmpdir/$package/shoppepkg" &>/dev/null
+			if [[ "$group" ]]; then
+				[[ "$group" ]] && tocheck="$group $tocheck"
+				tocheck="${tocheck/$package/}"
+				continue
+			fi
 			[[ "$package" == *"-git" ]] && [[ "$forcebuild" != "true" ]] && [[ "$nobuild" != "true" ]] && echo -e "$p_info $package will be built manually." && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg" && nobuild=false
 			if [[ "$force" != "true" ]]; then
 				for conflictpkg in $conflicts $provides; do
@@ -633,10 +641,10 @@ shoppe_install() {
 		echo -e "$p_info Installing $package..."
 		let currentpkg++
 		! pkg_install && fail "Failed to install $package."
-		if [[ "$optdepends" ]] && [[ -e "$tmpdir/$package/optdepends" ]]; then
+		if [[ "$optdepends" ]]; then
 			echo -e "$p_info Optional dependencies:"
 			for dep in $optdepends; do
-				if grep "^$dep " "$tmpdir/$package/optdepends" &>/dev/null; then
+				if [[ -e "$tmpdir/$package/optdepends" ]] && grep "^$dep " "$tmpdir/$package/optdepends" &>/dev/null; then
 					if grep "^$dep$" "$pkglist" &>/dev/null || grep "^$dep$" "$pkglist.frontend" &>/dev/null; then
 						echo "$(grep ^$dep $tmpdir/$package/optdepends) [Installed]"
 					else
