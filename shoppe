@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/bash -x
 # shellcheck disable=SC1090,SC2001,SC1091,SC2219
 ##
 ## shoppe - a portable package manager that integrates with your current package manager
@@ -186,7 +186,7 @@ httpfetch_init() {
 	fi
 }
 httpfetch() {
-	if [[ "$httpfetch" == "curl" ]]; then curlable="$(echo $* | sed 's/\ -O\ /\ -o\ /g')"; curl --progress-bar $curlable && return 0 || return 1;
+	if [[ "$httpfetch" == "curl" ]]; then curlable="$(echo $* | sed 's/\ -O\ /\ --output\ /g')"; curl -L --progress-bar $curlable && return 0 || return 1;
 	elif [[ "$httpfetch" == "wget" ]]; then wget $* && return 0 || return 1;
 	else return 1;
 	fi
@@ -209,11 +209,11 @@ get_source() {
     case $sourcetype in
         git) if [[ "$tag" ]]; then git clone --branch "$tag" "$source" "source"; else git clone "$source" "source"; fi
 			if [[ "$commit" ]]; then cd source; git checkout "$commit"; cd ..; fi;;
-        tar) httpfetch "$source"; mkdir source; tar xvf ./* -C source;;
-        targz) httpfetch "$source"; mkdir source; tar xzf ./* -C source;;
-        #gz) httpfetch "$source"; gunzip ./*;;
-        tarxz) httpfetch "$source"; mkdir source; tar xJf ./* -C source;;
-		zip) httpfetch "$source"; mkdir source; unzip ./* -d source;;
+        tar) httpfetch "$source" -O "$(basename $source)"; mkdir source; tar xvf "$(basename $source)" -C source;;
+        targz) httpfetch "$source" -O "$(basename $source)"; mkdir source; tar xzf "$(basename $source)" -C source;;
+        #gz) httpfetch "$source" -O "$(basename $source)"; gunzip "$(basename $source)";;
+        tarxz) httpfetch "$source" -O "$(basename $source)"; mkdir source; tar xJf "$(basename $source)" -C source;;
+		zip) httpfetch "$source" -O "$(basename $source)"; mkdir source; unzip "$(basename $source)" -d source;;
     esac
 }
 
