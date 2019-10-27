@@ -670,15 +670,14 @@ shoppe_install() {
 			done
 		fi
 		if [[ "$packagemake" == "true" ]]; then
-			cd "$tmpdir/$package/content"
-			tar -czf content-$arch.tar.gz .
+			mkdir "$tmpdir/$package/topackage"
+			cd "$tmpdir/$package/topackage"
+			tar -czf "content-$arch.tar.gz" -C "$tmpdir/$package/content" .
 			sed "/content\_${arch}\_checksum/d" "$tmpdir/$package/shoppepkg" > "$tmpdir/$package/shoppepkg.tmp"
 			[[ "$pkgrel" != "rolling" ]] && sed "/pkgrel/d" "$tmpdir/$package/shoppepkg" > "$tmpdir/$package/shoppepkg.tmp"
 			mv "$tmpdir/$package/shoppepkg.tmp" "$tmpdir/$package/shoppepkg"
 			echo "content_${arch}_checksum='$(sha512sum content-$arch.tar.gz)'" >> "$tmpdir/$package/shoppepkg"
 			[[ "$pkgrel" != "rolling" ]] && echo "pkgrel='$pkgrel'" >> "$tmpdir/$package/shoppepkg"
-			mkdir "$tmpdir/$package/topackage"
-			mv content-$arch.tar.gz "$tmpdir/$package/topackage"
 			mv "$tmpdir/$package/shoppepkg" "$tmpdir/$package/topackage"
 			[[ -e "$tmpdir/$package/optdepends" ]] && mv "$tmpdir/$package/optdepends" "$tmpdir/$package/$topackage"
 			tar -czf "$HOME/$package.tar.gz" -C "$tmpdir/$package/topackage" .
