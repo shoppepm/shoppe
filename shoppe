@@ -169,6 +169,7 @@ yesno() {
 		choice="$1"
 	else
 		read -p "$yesnotxt $yesnochoice " -re choice
+		[[ -z "$choice" ]] && choice="$1"
 	fi
 	if [[ "$choice" == "Y" || "$choice" == "y" ]]; then choice="yes"; else choice="no"; fi
 }
