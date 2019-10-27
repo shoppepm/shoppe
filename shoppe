@@ -316,10 +316,6 @@ pkg_fetch_content() {
 
 # Package helper functions
 
-donothing() {
-	return 0
-}
-
 pkg_cleanup() {
 	# This function cleans up after a shoppe package.
 	# Use this when you're running a loop that sources multiple shoppepkgs.
@@ -566,7 +562,7 @@ frontend_init() {
 	fi
 	if [[ "$skipfrontendquery" == "true" ]]; then
 		echo -e "$p_warn The --skip-frontend-query switch was passed. Shoppe will automatically assume that all packages are available in the frontend."
-		frontend_query="donothing"
+		frontend_query="true"
 	fi
 }
 
