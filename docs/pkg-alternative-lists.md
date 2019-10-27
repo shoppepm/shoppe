@@ -6,7 +6,7 @@ When a package is named differently in one distro, and differently in another, a
 
 ## Creating a package alternative list
 
-Package manager specific lists use the commonpm variable (see [[Package manager support]](package-manager-support.md)) as their name, for example the alternative list for apt will be called ``apt.altlist``.
+Package manager specific lists use the commonpm variable (see [[Package manager support]](frontend-support.md)) as their name, for example the alternative list for apt will be called ``apt.altlist``.
 
 The list follows the following format:
 

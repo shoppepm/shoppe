@@ -470,6 +470,7 @@ frontend_init() {
 		nopmfound) # No package manager found
 			pm="";;
 		pkg) # pkg (Termux, Debian-based with custom frontend)
+			commonpm="apt"
 			frontend_install="$pm install"
 			frontend_remove="$pm remove"
 			frontend_update="$pm update"
@@ -479,6 +480,7 @@ frontend_init() {
 			frontend_noconfirm="--yes --force-yes"
 			;;
 		apt|apt-get) # apt/apt-get (Debian-based)
+			commonpm="apt"
 			frontend_install="$suauth $pm install"
 			frontend_remove="$suauth $pm remove"
 			frontend_update="$suauth $pm update"
@@ -488,6 +490,7 @@ frontend_init() {
 			frontend_noconfirm="--yes --force-yes"
 			;;
 		dnf) # dnf (Fedora)
+			commonpm="dnf"
 			frontend_install="$suauth $pm install"
 			frontend_remove="$suauth $pm remove"
 			frontend_update="$suauth $pm check-update 1>/dev/null"
@@ -497,6 +500,7 @@ frontend_init() {
 			frontend_noconfirm="-y"
 			;;
 		yum) # yum (Fedora, CentOS, Red Hat and related)
+			commonpm="dnf"
 			frontend_install="$suauth $pm install"
 			frontend_remove="$suauth $pm remove"
 			frontend_update="$suauth $pm check-update 1>/dev/null"
@@ -506,6 +510,7 @@ frontend_init() {
 			frontend_noconfirm="-y"
 			;;
 		yay|yaourt|pacaur) # AUR helpers (Arch Linux)
+			commonpm="pacman"
 			frontend_install="$pm -Sy --needed"
 			frontend_remove="$pm -R"
 			frontend_update="$pm -Sy"
@@ -515,6 +520,7 @@ frontend_init() {
 			frontend_noconfirm="--noconfirm"
 			;;
 		pacman) # pacman (Arch Linux)
+			commonpm="pacman"
 			frontend_install="$suauth $pm -Sy --needed"
 			frontend_remove="$suauth $pm -R"
 			frontend_update="$suauth $pm -Sy"
@@ -524,6 +530,7 @@ frontend_init() {
 			frontend_noconfirm="--noconfirm"
 			;;
 		zypper) # zypper (openSUSE-based)
+			commonpm="zypper"
 			frontend_install="$suauth $pm install"
 			frontend_remove="$suauth $pm remove"
 			frontend_update="$suauth dnf clean expire-cache && $suauth dnf check-update"
@@ -533,6 +540,7 @@ frontend_init() {
 			frontend_noconfirm="--non-interactive"
 			;;
 		apk) # apk (Alpine Linux, postmarketOS)
+			commonpm="apk"
 			frontend_install="$suauth $pm add"
 			frontend_remove="$suauth $pm del"
 			frontend_update="$suauth $pm update"
@@ -541,6 +549,7 @@ frontend_init() {
 			frontend_listall="$pm info" # TODO: Fancy sed command that moves the version to the end and revision to the middle (use apk info -v for that)
 			;;
 		eopkg) # eopkg (Solus)
+			commonpm="apk"
 			frontend_install="$suauth $pm install"
 			frontend_remove="$suauth $pm remove"
 			frontend_update="$suauth $pm update-repo"
@@ -594,9 +603,9 @@ shoppe_install() {
 			pkg_cleanup
 			success="0"
 			[[ "$skipfrontendforchosenpkgs" == "true" ]] && [[ "$packages" == *"$package"* ]] && currentskipfrontend="true" && unset pm
-			if [[ -e "$configdir/$pm.altlist" ]]; then
+			if [[ -e "$configdir/$commonpm.altlist" ]]; then
 				unset alt
-				alt=$(grep "$package" "$configdir/$pm.altlist" 2>/dev/null)
+				alt=$(grep "$package" "$configdir/$commonpm.altlist" 2>/dev/null)
 				[[ ! -z "$alt" ]] && package=$(echo "$alt" | awk '{print $2}')
 			fi
 			if [[ -e "$configdir/custom.altlist" ]]; then
