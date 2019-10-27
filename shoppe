@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/bash -x
 # shellcheck disable=SC1090,SC2001,SC1091,SC2219
 ##
 ## shoppe - a portable package manager that integrates with your current package manager
@@ -603,15 +603,16 @@ shoppe_install() {
 			pkg_cleanup
 			success="0"
 			[[ "$skipfrontendforchosenpkgs" == "true" ]] && [[ "$packages" == *"$package"* ]] && currentskipfrontend="true" && unset pm
+			unset oldpackage
 			if [[ -e "$configdir/$commonpm.altlist" ]]; then
 				unset alt
-				alt=$(grep "$package" "$configdir/$commonpm.altlist" 2>/dev/null)
-				[[ ! -z "$alt" ]] && package=$(echo "$alt" | awk '{print $2}')
+				alt=$(grep "^$package " "$configdir/$commonpm.altlist")
+				[[ ! -z "$alt" ]] && oldpackage="$package" && package=$(echo "$alt" | awk '{print $2}')
 			fi
 			if [[ -e "$configdir/custom.altlist" ]]; then
 				unset alt
-				alt=$(grep "$package" "$configdir/custom.altlist" 2>/dev/null)
-				[[ ! -z "$alt" ]] && package=$(echo "$alt" | awk '{print $2}')
+				alt=$(grep "^$package " "$configdir/custom.altlist")
+				[[ ! -z "$alt" ]] && oldpackage="$package" && package=$(echo "$alt" | awk '{print $2}')
 			fi
 			[[ "$pm" ]] && $frontend_query ^$package$ &>/dev/null && tofrontend="$tofrontend $package" && tocheck="${tocheck/$package/}" && continue
 			[[ -z "$pm" ]] && command -v "$package" &>/dev/null && echo -e "$p_info Package $package is already installed, skipping..." && tocheck="${tocheck/$package/}" && continue
@@ -635,24 +636,40 @@ shoppe_install() {
 					else
 						echo -e "$p_info Package $package is already installed, skipping..."
 					fi
-					tocheck="${tocheck/$package/}"
+					if [[ "$oldpackage" ]]; then
+						tocheck="${tocheck/$oldpackage/}"
+					else
+						tocheck="${tocheck/$package/}"
+					fi
 					continue
 				fi
 				if [[ "$pm" ]] && grep "^$package $pkgrel $pkgver" "$pkglist.frontend" &>/dev/null; then
 					echo -e "$p_info Package $package is already installed via frontend, skipping..."
-					tocheck="${tocheck/$package/}"
-					continue
+					if [[ "$oldpackage" ]]; then
+						tocheck="${tocheck/$oldpackage/}"
+					else
+						tocheck="${tocheck/$package/}"
+					fi
+										continue
 				fi
 				if grep "$package" "$providedpkglist" &>/dev/null; then
 					echo -e "$p_info Package $package was already provided by another package. Skipping..."
-					tocheck="${tocheck/$package/}"
+					if [[ "$oldpackage" ]]; then
+						tocheck="${tocheck/$oldpackage/}"
+					else
+						tocheck="${tocheck/$package/}"
+					fi
 					continue
 				fi
 			fi
 			toinstall="$toinstall $package"
 			[[ "$depends" ]] && tocheck="$tocheck $depends"
 			[[ "$nobuild" == "false" ]] && [[ "$makedepends" ]] && tocheck="$tocheck $makedepends"
-			tocheck="${tocheck/$package/}"
+			if [[ "$oldpackage" ]]; then
+				tocheck="${tocheck/$oldpackage/}"
+			else
+				tocheck="${tocheck/$package/}"
+			fi
 			[[ "$currentskipfrontend" == "true" ]] && pm="$oldpm"
 		done
 	done
