@@ -1,4 +1,4 @@
-#!/usr/bin/bash -x
+#!/usr/bin/env bash
 # shellcheck disable=SC1090,SC2001,SC1091,SC2219
 ##
 ## shoppe - a portable package manager that integrates with your current package manager
@@ -607,15 +607,23 @@ shoppe_install() {
 			if [[ -e "$configdir/$commonpm.altlist" ]]; then
 				unset alt
 				alt=$(grep "^$package " "$configdir/$commonpm.altlist")
-				[[ ! -z "$alt" ]] && oldpackage="$package" && package=$(echo "$alt" | awk '{print $2}')
+				[[ "$alt" ]] && oldpackage="$package" && package=$(echo "$alt" | awk '{print $2}')
 			fi
 			if [[ -e "$configdir/custom.altlist" ]]; then
 				unset alt
 				alt=$(grep "^$package " "$configdir/custom.altlist")
-				[[ ! -z "$alt" ]] && oldpackage="$package" && package=$(echo "$alt" | awk '{print $2}')
+				[[ "$alt" ]] && oldpackage="$package" && package=$(echo "$alt" | awk '{print $2}')
 			fi
-			[[ "$pm" ]] && $frontend_query ^$package$ &>/dev/null && tofrontend="$tofrontend $package" && tocheck="${tocheck/$package/}" && continue
-			[[ -z "$pm" ]] && command -v "$package" &>/dev/null && echo -e "$p_info Package $package is already installed, skipping..." && tocheck="${tocheck/$package/}" && continue
+			if [[ "$pm" ]] && $frontend_query ^$package$ &>/dev/null; then
+				tofrontend="$tofrontend $package"
+				if [[ "$oldpackage" ]]; then
+					tocheck="${tocheck/$oldpackage/}"
+				else
+					tocheck="${tocheck/$package/}"
+				fi
+				continue
+			fi
+			[[ -z "$pm" ]] && command -v "$package" &>/dev/null && echo -e "$p_info Package $package is already installed, skipping..." && if [[ "$oldpackage" ]]; then tocheck="${tocheck/$oldpackage/}"; else tocheck="${tocheck/$package/}"; fi && continue
 			pkg_fetch || fail "Package $package not found."
 			source "$tmpdir/$package/shoppepkg" &>/dev/null
 			if [[ "$group" ]]; then
