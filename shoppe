@@ -210,7 +210,7 @@ get_source() {
     case $sourcetype in
         git) if [[ "$tag" ]]; then git clone --branch "$tag" "$source" "source"; else git clone "$source" "source"; fi
 			if [[ "$commit" ]]; then cd source; git checkout "$commit"; cd ..; fi;;
-        tar) httpfetch "$source" -O "$(basename $source)"; mkdir source; tar xvf "$(basename $source)" -C source;;
+        tar) httpfetch "$source" -O "$(basename $source)"; mkdir source; tar xf "$(basename $source)" -C source;;
         targz) httpfetch "$source" -O "$(basename $source)"; mkdir source; tar xzf "$(basename $source)" -C source;;
         #gz) httpfetch "$source" -O "$(basename $source)"; gunzip "$(basename $source)";;
         tarxz) httpfetch "$source" -O "$(basename $source)"; mkdir source; tar xJf "$(basename $source)" -C source;;
