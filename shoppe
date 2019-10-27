@@ -54,6 +54,7 @@ if [[ "$*" != "install shoppe"* ]] && ! grep '^shoppe ' "$pkglist" &>/dev/null &
 	echo "shoppe 0 $version" >> "$pkglist"
 fi
 [[ ! -e "$deplist" ]] && touch "$deplist"
+
 ## Help (--help)
 shoppe_help() { echo "\
 Usage: shoppe function [options]
@@ -593,6 +594,16 @@ shoppe_install() {
 			pkg_cleanup
 			success="0"
 			[[ "$skipfrontendforchosenpkgs" == "true" ]] && [[ "$packages" == *"$package"* ]] && currentskipfrontend="true" && unset pm
+			if [[ -e "$configdir/$pm.altlist" ]]; then
+				unset alt
+				alt=$(grep "$package" "$configdir/$pm.altlist" 2>/dev/null)
+				[[ ! -z "$alt" ]] && package=$(echo "$alt" | awk '{print $2}')
+			fi
+			if [[ -e "$configdir/custom.altlist" ]]; then
+				unset alt
+				alt=$(grep "$package" "$configdir/custom.altlist" 2>/dev/null)
+				[[ ! -z "$alt" ]] && package=$(echo "$alt" | awk '{print $2}')
+			fi
 			[[ "$pm" ]] && $frontend_query ^$package$ &>/dev/null && tofrontend="$tofrontend $package" && tocheck="${tocheck/$package/}" && continue
 			[[ -z "$pm" ]] && command -v "$package" &>/dev/null && echo -e "$p_info Package $package is already installed, skipping..." && tocheck="${tocheck/$package/}" && continue
 			pkg_fetch || fail "Package $package not found."
