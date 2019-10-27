@@ -53,6 +53,7 @@ skiperrors="false"
 if [[ "$*" != "install shoppe"* ]] && ! grep '^shoppe ' "$pkglist" &>/dev/null && ! grep '^shoppe-mc ' "$pkglist" &>/dev/null && ! grep '^shoppe-git ' "$pkglist" &>/dev/null; then
 	echo "shoppe 0 $version" >> "$pkglist"
 fi
+[[ ! -e "$deplist" ]] && touch "$deplist"
 ## Help (--help)
 shoppe_help() { echo "\
 Usage: shoppe function [options]
@@ -222,6 +223,7 @@ pkg_fetch() {
 	# It is not meant to be called with multiple packages.
 	# Usage: package="packagetofetch" pkg_fetch
 	# Usage example: use in 'for' loops
+	unset reposwithpkg
 	current_uptodate="false"
 	success="0"
 	repoID=0
@@ -239,7 +241,6 @@ pkg_fetch() {
 		fi
 	fi
 	[[ "$command" != "shoppe_upgrade" ]] && [[ -f "$package" ]] && [[ "$package" != *".tar.gz" ]] && [[ "$package" != "shoppe" ]] && grep "pkgname=" "$package" && echo "nobuild='false'" >> "$package" && mkdir "$tmpdir/$package" && cp "$package" "$tmpdir/$package/shoppepkg" && package="$(basename $package)" && return 0
-	[[ ! -e "$tmpdir/$package" ]] && mkdir "$tmpdir/$package"
 	while IFS="" read -r repo || [[ -n "$repo" ]]; do
 		let repoID++
 		if grep "^$package " "$configdir/repodata/$repoID" &>/dev/null; then
@@ -248,6 +249,7 @@ pkg_fetch() {
 	done < "$repolist"
 	reposwithpkg=$(echo "$reposwithpkg" | sed -e 's/^[ \t]*//')
 	[[ -z "$reposwithpkg" ]] && fail "Could not find package $package. Check if your spelling is correct or add a repository that contains this package."
+	[[ ! -e "$tmpdir/$package" ]] && mkdir "$tmpdir/$package"
 	[[ "$command" != "shoppe_info" ]] && bestline=$(grep "^$package " "$pkglist")
 	[[ -z "$bestline" ]] && bestline="$package 0 0"
 	originalline="$bestline"
@@ -287,6 +289,7 @@ pkg_fetch() {
 			*) echo -e "$p_debug Repo data file for id $repo does not contain repository path! Have you been tampering with the file? Run shoppe update to fix this.";;
 		esac
 	fi
+	[[ ! -e "$tmpdir/$package/shoppepkg" ]] && [[ -z "$(cat $tmpdir/$package/shoppepkg)" ]] && success=0
 	if [[ "$success" == "1" ]]; then return 0; else return 1; fi
 }
 
@@ -596,7 +599,7 @@ shoppe_install() {
 			[[ "$skipfrontendforchosenpkgs" == "true" ]] && [[ "$packages" == *"$package"* ]] && currentskipfrontend="true" && unset pm
 			[[ "$pm" ]] && $frontend_query ^$package$ &>/dev/null && tofrontend="$tofrontend $package" && tocheck="${tocheck/$package/}" && continue
 			[[ -z "$pm" ]] && command -v "$package" &>/dev/null && echo -e "$p_info Package $package is already installed, skipping..." && tocheck="${tocheck/$package/}" && continue
-			pkg_fetch
+			pkg_fetch || fail "Package $package not found."
 			source "$tmpdir/$package/shoppepkg" &>/dev/null
 			if [[ "$group" ]]; then
 				[[ "$group" ]] && tocheck="$group $tocheck"
