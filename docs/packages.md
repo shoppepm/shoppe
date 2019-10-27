@@ -74,3 +74,7 @@ shoppepkg_build() {
 
 # You can also specify post- and pre-install hooks, by creating the shoppepkg_preinstall and shoppepkg_postinstall functions.
 ```
+
+## Package groups
+
+See: (Package groups)[package-groups.md].

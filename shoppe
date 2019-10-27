@@ -2,7 +2,7 @@
 # shellcheck disable=SC1090,SC2001,SC1091,SC2219
 ##
 ## shoppe - a portable package manager that integrates with your current package manager
-version="1.2.2"
+version="1.3.0"
 ##
 ## Licensed under the MIT License
 
@@ -53,6 +53,8 @@ skiperrors="false"
 if [[ "$*" != "install shoppe"* ]] && ! grep '^shoppe ' "$pkglist" &>/dev/null && ! grep '^shoppe-mc ' "$pkglist" &>/dev/null && ! grep '^shoppe-git ' "$pkglist" &>/dev/null; then
 	echo "shoppe 0 $version" >> "$pkglist"
 fi
+[[ ! -e "$deplist" ]] && touch "$deplist"
+
 ## Help (--help)
 shoppe_help() { echo "\
 Usage: shoppe function [options]
@@ -130,6 +132,9 @@ Options:
 
 	--skip-errors
 		Do not exit when errors occur. Not reccomended.
+
+	--skip-frontend-query
+		Automatically assume all packages are available from the frontend.
 "
 exit 0
 }
@@ -164,6 +169,7 @@ yesno() {
 		choice="$1"
 	else
 		read -p "$yesnotxt $yesnochoice " -re choice
+		[[ -z "$choice" ]] && choice="$1"
 	fi
 	if [[ "$choice" == "Y" || "$choice" == "y" ]]; then choice="yes"; else choice="no"; fi
 }
@@ -183,7 +189,7 @@ httpfetch_init() {
 	fi
 }
 httpfetch() {
-	if [[ "$httpfetch" == "curl" ]]; then curlable="$(echo $* | sed 's/\ -O\ /\ -o\ /g')"; curl --progress-bar $curlable && return 0 || return 1;
+	if [[ "$httpfetch" == "curl" ]]; then curlable="$(echo $* | sed 's/\ -O\ /\ --output\ /g')"; curl -L --progress-bar $curlable && return 0 || return 1;
 	elif [[ "$httpfetch" == "wget" ]]; then wget $* && return 0 || return 1;
 	else return 1;
 	fi
@@ -206,11 +212,11 @@ get_source() {
     case $sourcetype in
         git) if [[ "$tag" ]]; then git clone --branch "$tag" "$source" "source"; else git clone "$source" "source"; fi
 			if [[ "$commit" ]]; then cd source; git checkout "$commit"; cd ..; fi;;
-        tar) httpfetch "$source"; mkdir source; tar xvf ./* -C source;;
-        targz) httpfetch "$source"; mkdir source; tar xzf ./* -C source;;
-        #gz) httpfetch "$source"; gunzip ./*;;
-        tarxz) httpfetch "$source"; mkdir source; tar xJf ./* -C source;;
-		zip) httpfetch "$source"; mkdir source; unzip ./* -d source;;
+        tar) httpfetch "$source" -O "$(basename $source)"; mkdir source; tar xf "$(basename $source)" -C source;;
+        targz) httpfetch "$source" -O "$(basename $source)"; mkdir source; tar xzf "$(basename $source)" -C source;;
+        #gz) httpfetch "$source" -O "$(basename $source)"; gunzip "$(basename $source)";;
+        tarxz) httpfetch "$source" -O "$(basename $source)"; mkdir source; tar xJf "$(basename $source)" -C source;;
+		zip) httpfetch "$source" -O "$(basename $source)"; mkdir source; unzip "$(basename $source)" -d source;;
     esac
 }
 
@@ -219,6 +225,7 @@ pkg_fetch() {
 	# It is not meant to be called with multiple packages.
 	# Usage: package="packagetofetch" pkg_fetch
 	# Usage example: use in 'for' loops
+	unset reposwithpkg
 	current_uptodate="false"
 	success="0"
 	repoID=0
@@ -236,7 +243,6 @@ pkg_fetch() {
 		fi
 	fi
 	[[ "$command" != "shoppe_upgrade" ]] && [[ -f "$package" ]] && [[ "$package" != *".tar.gz" ]] && [[ "$package" != "shoppe" ]] && grep "pkgname=" "$package" && echo "nobuild='false'" >> "$package" && mkdir "$tmpdir/$package" && cp "$package" "$tmpdir/$package/shoppepkg" && package="$(basename $package)" && return 0
-	[[ ! -e "$tmpdir/$package" ]] && mkdir "$tmpdir/$package"
 	while IFS="" read -r repo || [[ -n "$repo" ]]; do
 		let repoID++
 		if grep "^$package " "$configdir/repodata/$repoID" &>/dev/null; then
@@ -245,6 +251,7 @@ pkg_fetch() {
 	done < "$repolist"
 	reposwithpkg=$(echo "$reposwithpkg" | sed -e 's/^[ \t]*//')
 	[[ -z "$reposwithpkg" ]] && fail "Could not find package $package. Check if your spelling is correct or add a repository that contains this package."
+	[[ ! -e "$tmpdir/$package" ]] && mkdir "$tmpdir/$package"
 	[[ "$command" != "shoppe_info" ]] && bestline=$(grep "^$package " "$pkglist")
 	[[ -z "$bestline" ]] && bestline="$package 0 0"
 	originalline="$bestline"
@@ -284,6 +291,7 @@ pkg_fetch() {
 			*) echo -e "$p_debug Repo data file for id $repo does not contain repository path! Have you been tampering with the file? Run shoppe update to fix this.";;
 		esac
 	fi
+	[[ ! -e "$tmpdir/$package/shoppepkg" ]] && [[ -z "$(cat $tmpdir/$package/shoppepkg)" ]] && success=0
 	if [[ "$success" == "1" ]]; then return 0; else return 1; fi
 }
 
@@ -316,6 +324,7 @@ pkg_cleanup() {
 	# Usage: pkg_cleanup
 	unset pkgname pkgdesc pkgarch pkgver revision license url depends optdepends makedepends provides conflicts archdependent source sourcetype tag commit
 	unset -f shoppepkg_preinstall shoppepkg_build shoppepkg_postinstall
+	unset group optgroup
 	[[ "$currentskipfrontend" == "true" ]] && [[ -z "$pm" ]] && pm="$oldpm"
 	unset nobuild current_uptodate currentskipfrontend
 	[[ "$forcebuild" == "true" ]] && nobuild="false"
@@ -333,49 +342,51 @@ pkg_install() {
 	[[ "$package" != "$pkgname" ]] && echo -e "$p_debug Package name and pkgname do not match (expected $package, got $pkgname). Please contact the package's maintainer."
 	contentdir="$tmpdir/$package/content"
 	sourcedir="$tmpdir/$package/source"
-	type -t shoppepkg_preinstall &>/dev/null && echo -e "  - $p_info Running pre-install..." && shoppepkg_preinstall
-	if [[ "$nobuild" == "false" ]]; then
-		type -t shoppepkg_build &>/dev/null && echo -e "  - $p_info Building..." && ! shoppepkg_build && fail "Failed to build $package."
-		cd "$tmpdir/$package"
-	else
-		contentchecksumvar="content_${arch}_checksum"
-		mkdir "$tmpdir/$package/content"
-		# shellcheck disable=SC2154
-		if [[ "$(sha512sum content-$arch.tar.gz | sed 's/\*/\ /g')" == "${!contentchecksumvar}" ]]; then
-			! tar -xzf content-$arch.tar.gz -C "$tmpdir/$package/content" && fail "Failed to extract $package."
+	if [[ ! "$group" ]]; then
+		type -t shoppepkg_preinstall &>/dev/null && echo -e "  - $p_info Running pre-install..." && shoppepkg_preinstall
+		if [[ "$nobuild" == "false" ]]; then
+			type -t shoppepkg_build &>/dev/null && echo -e "  - $p_info Building..." && ! shoppepkg_build && fail "Failed to build $package."
+			cd "$tmpdir/$package"
 		else
-			echo -e "$p_warn Package checksum (${!contentchecksumvar}) does not match the content tarball's checksum ($(sha512sum content-$arch.tar.gz | sed 's/\*/\ /g'))."
-			yesnotxt="Install anyways (not reccomended)?" yesno n
-			if [[ "$choice" == "yes" ]]; then
-				if tar -xzf content-$arch.tar.gz -C "$tmpdir/$package/content"; then
-					echo -e "$p_info Successfully extracted package."
-				else
-					fail "Failed to extract $package."
-				fi
+			contentchecksumvar="content_${arch}_checksum"
+			mkdir "$tmpdir/$package/content"
+			# shellcheck disable=SC2154
+			if [[ "$(sha512sum content-$arch.tar.gz | sed 's/\*/\ /g')" == "${!contentchecksumvar}" ]]; then
+				! tar -xzf content-$arch.tar.gz -C "$tmpdir/$package/content" && fail "Failed to extract $package."
 			else
-				fail "Failed to install $package."
+				echo -e "$p_warn Package checksum (${!contentchecksumvar}) does not match the content tarball's checksum ($(sha512sum content-$arch.tar.gz | sed 's/\*/\ /g'))."
+				yesnotxt="Install anyways (not reccomended)?" yesno n
+				if [[ "$choice" == "yes" ]]; then
+					if tar -xzf content-$arch.tar.gz -C "$tmpdir/$package/content"; then
+						echo -e "$p_info Successfully extracted package."
+					else
+						fail "Failed to extract $package."
+					fi
+				else
+					fail "Failed to install $package."
+				fi
 			fi
 		fi
+		! cd content && fail "Failed to install $package."
+		if [[ -z "$custominstalldir" ]]; then
+			! $suauth cp -rf . / && fail "Failed to install $package."
+		else
+			! $suauth cp -rf . "$custominstalldir/" && fail "Failed to install $package."
+		fi
+		cd "$tmpdir/$package"
+		[[ -e "$pkginfo/$package" ]] && rm -rf "${pkginfo:?}/${package:?}"
+		mkdir "$pkginfo/$package"
+		shopt -s globstar
+		[[ -e "$pkginfo/$package/content" ]] && rm "$pkginfo/$package/content"
+		for file in "$tmpdir/$package/content"/**; do
+			[[ "$custominstalldir" ]] && $suauth ln -s "$file" "${file/$PWD\/content/}"
+			# This doesn't include directories that are made by the package,
+			# but that's still better than adding the entire / directory.
+			[[ -f "$file" ]] && echo "${file/$PWD\/content/}" >> "$pkginfo/$package/content"
+		done
+		shopt -u globstar
+		type -t shoppepkg_postinstall &>/dev/null && echo -e "  - $p_info Running post-install..." && ! shoppepkg_postinstall && echo -e "$p_warn Post-install script failed, but package's files were already copied! It is reccomended to reinstall the package, and if that doesn't help, contact the package's maintainer."
 	fi
-	! cd content && fail "Failed to install $package."
-	if [[ -z "$custominstalldir" ]]; then
-		! $suauth cp -rf . / && fail "Failed to install $package."
-	else
-		! $suauth cp -rf . "$custominstalldir/" && fail "Failed to install $package."
-	fi
-	cd "$tmpdir/$package"
-	[[ -e "$pkginfo/$package" ]] && rm -rf "${pkginfo:?}/${package:?}"
-	mkdir "$pkginfo/$package"
-	shopt -s globstar
-	[[ -e "$pkginfo/$package/content" ]] && rm "$pkginfo/$package/content"
-	for file in "$tmpdir/$package/content"/**; do
-		[[ "$custominstalldir" ]] && $suauth ln -s "$file" "${file/$PWD\/content/}"
-		# This doesn't include directories that are made by the package,
-		# but that's still better than adding the entire / directory.
-		[[ -f "$file" ]] && echo "${file/$PWD\/content/}" >> "$pkginfo/$package/content"
-	done
-	shopt -u globstar
-	type -t shoppepkg_postinstall &>/dev/null && echo -e "  - $p_info Running post-install..." && ! shoppepkg_postinstall && echo -e "$p_warn Post-install script failed, but package's files were already copied! It is reccomended to reinstall the package, and if that doesn't help, contact the package's maintainer."
 	if grep "^$package " "$pkglist" &>/dev/null; then
 		sed "/^$package\ /d" "$pkglist" > "${pkglist}-tmp"
 		mv "${pkglist}-tmp" "$pkglist"
@@ -430,6 +441,14 @@ yay_query() {
 	if [[ -z "$(cat $tmpdir/err)" ]]; then return 1; else return 0; fi
 }
 
+dnf_query() {
+	# Workaround for buggy dnf/yum behavior (doesn't work with ^pkgname$ regex).
+	# Usage: dnf_query <package>
+	dqinput="${1/\^/}"
+	dqinput="${dqinput/\$/}"
+	$pm info "$dqinput"
+}
+
 zypper_query() {
 	# Workaround for buggy zypper behavior (yay will return 0 even if the search has failed, also doesn't work with ^pkgname$ regex).
 	# Usage: zypper_query <package>
@@ -452,6 +471,7 @@ frontend_init() {
 		nopmfound) # No package manager found
 			pm="";;
 		pkg) # pkg (Termux, Debian-based with custom frontend)
+			commonpm="apt"
 			frontend_install="$pm install"
 			frontend_remove="$pm remove"
 			frontend_update="$pm update"
@@ -461,6 +481,7 @@ frontend_init() {
 			frontend_noconfirm="--yes --force-yes"
 			;;
 		apt|apt-get) # apt/apt-get (Debian-based)
+			commonpm="apt"
 			frontend_install="$suauth $pm install"
 			frontend_remove="$suauth $pm remove"
 			frontend_update="$suauth $pm update"
@@ -469,16 +490,28 @@ frontend_init() {
 			frontend_listall="apt-cache pkgnames" # TODO: This only shows package names but not versions. Fix that, eventually.
 			frontend_noconfirm="--yes --force-yes"
 			;;
-		dnf|yum) # dnf/yum (Fedora, CentOS, Red Hat and related)
+		dnf) # dnf (Fedora)
+			commonpm="dnf"
 			frontend_install="$suauth $pm install"
 			frontend_remove="$suauth $pm remove"
-			frontend_update="$suauth $pm update"
+			frontend_update="$suauth $pm check-update 1>/dev/null"
 			frontend_upgrade="$suauth $pm upgrade"
-			frontend_query="$pm search"
-			frontend_listall="rpm -qa | sed -i 's/\:/\ 0\ /g'"
+			frontend_query="dnf_query"
+			frontend_listall="rpm -qa --qf '%{NAME}\n'"
+			frontend_noconfirm="-y"
+			;;
+		yum) # yum (Fedora, CentOS, Red Hat and related)
+			commonpm="dnf"
+			frontend_install="$suauth $pm install"
+			frontend_remove="$suauth $pm remove"
+			frontend_update="$suauth $pm check-update 1>/dev/null"
+			frontend_upgrade="$suauth $pm update"
+			frontend_query="dnf_query"
+			frontend_listall="rpm -qa --qf '%{NAME}\n'"
 			frontend_noconfirm="-y"
 			;;
 		yay|yaourt|pacaur) # AUR helpers (Arch Linux)
+			commonpm="pacman"
 			frontend_install="$pm -Sy --needed"
 			frontend_remove="$pm -R"
 			frontend_update="$pm -Sy"
@@ -488,6 +521,7 @@ frontend_init() {
 			frontend_noconfirm="--noconfirm"
 			;;
 		pacman) # pacman (Arch Linux)
+			commonpm="pacman"
 			frontend_install="$suauth $pm -Sy --needed"
 			frontend_remove="$suauth $pm -R"
 			frontend_update="$suauth $pm -Sy"
@@ -497,6 +531,7 @@ frontend_init() {
 			frontend_noconfirm="--noconfirm"
 			;;
 		zypper) # zypper (openSUSE-based)
+			commonpm="zypper"
 			frontend_install="$suauth $pm install"
 			frontend_remove="$suauth $pm remove"
 			frontend_update="$suauth dnf clean expire-cache && $suauth dnf check-update"
@@ -506,6 +541,7 @@ frontend_init() {
 			frontend_noconfirm="--non-interactive"
 			;;
 		apk) # apk (Alpine Linux, postmarketOS)
+			commonpm="apk"
 			frontend_install="$suauth $pm add"
 			frontend_remove="$suauth $pm del"
 			frontend_update="$suauth $pm update"
@@ -514,6 +550,7 @@ frontend_init() {
 			frontend_listall="$pm info" # TODO: Fancy sed command that moves the version to the end and revision to the middle (use apk info -v for that)
 			;;
 		eopkg) # eopkg (Solus)
+			commonpm="apk"
 			frontend_install="$suauth $pm install"
 			frontend_remove="$suauth $pm remove"
 			frontend_update="$suauth $pm update-repo"
@@ -533,6 +570,10 @@ frontend_init() {
 			frontend_remove="$frontend_remove $frontend_noconfirm"
 			frontend_upgrade="$frontend_upgrade $frontend_noconfirm"
 		fi
+	fi
+	if [[ "$skipfrontendquery" == "true" ]]; then
+		echo -e "$p_warn The --skip-frontend-query switch was passed. Shoppe will automatically assume that all packages are available in the frontend."
+		frontend_query="true"
 	fi
 }
 
@@ -563,10 +604,34 @@ shoppe_install() {
 			pkg_cleanup
 			success="0"
 			[[ "$skipfrontendforchosenpkgs" == "true" ]] && [[ "$packages" == *"$package"* ]] && currentskipfrontend="true" && unset pm
-			[[ "$pm" ]] && $frontend_query ^$package$ &>/dev/null && tofrontend="$tofrontend $package" && tocheck="${tocheck/$package/}" && continue
-			[[ -z "$pm" ]] && command -v "$package" &>/dev/null && echo -e "$p_info Package $package is already installed, skipping..." && tocheck="${tocheck/$package/}" && continue
-			pkg_fetch
+			unset oldpackage
+			if [[ -e "$configdir/$commonpm.altlist" ]]; then
+				unset alt
+				alt=$(grep "^$package " "$configdir/$commonpm.altlist")
+				[[ "$alt" ]] && oldpackage="$package" && package=$(echo "$alt" | awk '{print $2}')
+			fi
+			if [[ -e "$configdir/custom.altlist" ]]; then
+				unset alt
+				alt=$(grep "^$package " "$configdir/custom.altlist")
+				[[ "$alt" ]] && oldpackage="$package" && package=$(echo "$alt" | awk '{print $2}')
+			fi
+			if [[ "$pm" ]] && $frontend_query ^$package$ &>/dev/null; then
+				tofrontend="$tofrontend $package"
+				if [[ "$oldpackage" ]]; then
+					tocheck="${tocheck/$oldpackage/}"
+				else
+					tocheck="${tocheck/$package/}"
+				fi
+				continue
+			fi
+			[[ -z "$pm" ]] && command -v "$package" &>/dev/null && echo -e "$p_info Package $package is already installed, skipping..." && if [[ "$oldpackage" ]]; then tocheck="${tocheck/$oldpackage/}"; else tocheck="${tocheck/$package/}"; fi && continue
+			pkg_fetch || fail "Package $package not found."
 			source "$tmpdir/$package/shoppepkg" &>/dev/null
+			if [[ "$group" ]]; then
+				[[ "$group" ]] && tocheck="$group $tocheck"
+				tocheck="${tocheck/$package/}"
+				continue
+			fi
 			[[ "$package" == *"-git" ]] && [[ "$forcebuild" != "true" ]] && [[ "$nobuild" != "true" ]] && echo -e "$p_info $package will be built manually." && echo "nobuild='false'" >> "$tmpdir/$package/shoppepkg" && nobuild=false
 			if [[ "$force" != "true" ]]; then
 				for conflictpkg in $conflicts $provides; do
@@ -580,24 +645,40 @@ shoppe_install() {
 					else
 						echo -e "$p_info Package $package is already installed, skipping..."
 					fi
-					tocheck="${tocheck/$package/}"
+					if [[ "$oldpackage" ]]; then
+						tocheck="${tocheck/$oldpackage/}"
+					else
+						tocheck="${tocheck/$package/}"
+					fi
 					continue
 				fi
 				if [[ "$pm" ]] && grep "^$package $pkgrel $pkgver" "$pkglist.frontend" &>/dev/null; then
 					echo -e "$p_info Package $package is already installed via frontend, skipping..."
-					tocheck="${tocheck/$package/}"
-					continue
+					if [[ "$oldpackage" ]]; then
+						tocheck="${tocheck/$oldpackage/}"
+					else
+						tocheck="${tocheck/$package/}"
+					fi
+										continue
 				fi
 				if grep "$package" "$providedpkglist" &>/dev/null; then
 					echo -e "$p_info Package $package was already provided by another package. Skipping..."
-					tocheck="${tocheck/$package/}"
+					if [[ "$oldpackage" ]]; then
+						tocheck="${tocheck/$oldpackage/}"
+					else
+						tocheck="${tocheck/$package/}"
+					fi
 					continue
 				fi
 			fi
 			toinstall="$toinstall $package"
 			[[ "$depends" ]] && tocheck="$tocheck $depends"
 			[[ "$nobuild" == "false" ]] && [[ "$makedepends" ]] && tocheck="$tocheck $makedepends"
-			tocheck="${tocheck/$package/}"
+			if [[ "$oldpackage" ]]; then
+				tocheck="${tocheck/$oldpackage/}"
+			else
+				tocheck="${tocheck/$package/}"
+			fi
 			[[ "$currentskipfrontend" == "true" ]] && pm="$oldpm"
 		done
 	done
@@ -616,10 +697,10 @@ shoppe_install() {
 		echo -e "$p_info Installing $package..."
 		let currentpkg++
 		! pkg_install && fail "Failed to install $package."
-		if [[ "$optdepends" ]] && [[ -e "$tmpdir/$package/optdepends" ]]; then
+		if [[ "$optdepends" ]]; then
 			echo -e "$p_info Optional dependencies:"
 			for dep in $optdepends; do
-				if grep "^$dep " "$tmpdir/$package/optdepends" &>/dev/null; then
+				if [[ -e "$tmpdir/$package/optdepends" ]] && grep "^$dep " "$tmpdir/$package/optdepends" &>/dev/null; then
 					if grep "^$dep$" "$pkglist" &>/dev/null || grep "^$dep$" "$pkglist.frontend" &>/dev/null; then
 						echo "$(grep ^$dep $tmpdir/$package/optdepends) [Installed]"
 					else
@@ -635,15 +716,14 @@ shoppe_install() {
 			done
 		fi
 		if [[ "$packagemake" == "true" ]]; then
-			cd "$tmpdir/$package/content"
-			tar -czf content-$arch.tar.gz .
+			mkdir "$tmpdir/$package/topackage"
+			cd "$tmpdir/$package/topackage"
+			tar -czf "content-$arch.tar.gz" -C "$tmpdir/$package/content" .
 			sed "/content\_${arch}\_checksum/d" "$tmpdir/$package/shoppepkg" > "$tmpdir/$package/shoppepkg.tmp"
 			[[ "$pkgrel" != "rolling" ]] && sed "/pkgrel/d" "$tmpdir/$package/shoppepkg" > "$tmpdir/$package/shoppepkg.tmp"
 			mv "$tmpdir/$package/shoppepkg.tmp" "$tmpdir/$package/shoppepkg"
 			echo "content_${arch}_checksum='$(sha512sum content-$arch.tar.gz)'" >> "$tmpdir/$package/shoppepkg"
 			[[ "$pkgrel" != "rolling" ]] && echo "pkgrel='$pkgrel'" >> "$tmpdir/$package/shoppepkg"
-			mkdir "$tmpdir/$package/topackage"
-			mv content-$arch.tar.gz "$tmpdir/$package/topackage"
 			mv "$tmpdir/$package/shoppepkg" "$tmpdir/$package/topackage"
 			[[ -e "$tmpdir/$package/optdepends" ]] && mv "$tmpdir/$package/optdepends" "$tmpdir/$package/$topackage"
 			tar -czf "$HOME/$package.tar.gz" -C "$tmpdir/$package/topackage" .
@@ -710,7 +790,7 @@ shoppe_remove() {
 # Update repository info.
 shoppe_update() {
 	[[ "$pm" ]] && echo -e "$p_info Fetching installed package list from frontend..." && frontend_harvest
-	[[ "$pm" ]] && $frontend_update
+	[[ "$pm" ]] && echo -e "$p_info Updating frontend repositories..." && $frontend_update
 	mv "$configdir/repodata" "$tmpdir/repodata-bak"
 	mkdir -p "$configdir/repodata"
 	# For each repository, check the repository type and fetch it accordingly.
@@ -873,6 +953,7 @@ for switch in $switches; do
 	case $switch in
 		'+skipfrontend'|'+sf'|'--skip-frontend'|'-s') skipfrontend="true";;
 		'--skip-frontend-for-chosen-packages'|'-c') skipfrontendforchosenpkgs="true";;
+		'--skip-frontend-query') skipfrontendquery="true";;
 		'+skiperrors'|'+se'|'--skip-errors') skiperrors="true";;
 		'+noconfirm'|'+nc'|'--noconfirm'|'-y') noconfirm="true";;
 		'+forcebuild'|'+fb'|'--forcebuild'|'-b') nobuild="false"; forcebuild="true";;
