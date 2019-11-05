@@ -54,6 +54,7 @@ if [[ "$*" != "install shoppe"* ]] && ! grep '^shoppe ' "$pkglist" &>/dev/null &
 	echo "shoppe 0 $version" >> "$pkglist"
 fi
 [[ ! -e "$deplist" ]] && touch "$deplist"
+
 ## Help (--help)
 shoppe_help() { echo "\
 Usage: shoppe function [options]
@@ -168,6 +169,7 @@ yesno() {
 		choice="$1"
 	else
 		read -p "$yesnotxt $yesnochoice " -re choice
+		[[ -z "$choice" ]] && choice="$1"
 	fi
 	if [[ "$choice" == "Y" || "$choice" == "y" ]]; then choice="yes"; else choice="no"; fi
 }
@@ -469,6 +471,7 @@ frontend_init() {
 		nopmfound) # No package manager found
 			pm="";;
 		pkg) # pkg (Termux, Debian-based with custom frontend)
+			commonpm="apt"
 			frontend_install="$pm install"
 			frontend_remove="$pm remove"
 			frontend_update="$pm update"
@@ -478,6 +481,7 @@ frontend_init() {
 			frontend_noconfirm="--yes --force-yes"
 			;;
 		apt|apt-get) # apt/apt-get (Debian-based)
+			commonpm="apt"
 			frontend_install="$suauth $pm install"
 			frontend_remove="$suauth $pm remove"
 			frontend_update="$suauth $pm update"
@@ -487,6 +491,7 @@ frontend_init() {
 			frontend_noconfirm="--yes --force-yes"
 			;;
 		dnf) # dnf (Fedora)
+			commonpm="dnf"
 			frontend_install="$suauth $pm install"
 			frontend_remove="$suauth $pm remove"
 			frontend_update="$suauth $pm check-update 1>/dev/null"
@@ -496,6 +501,7 @@ frontend_init() {
 			frontend_noconfirm="-y"
 			;;
 		yum) # yum (Fedora, CentOS, Red Hat and related)
+			commonpm="dnf"
 			frontend_install="$suauth $pm install"
 			frontend_remove="$suauth $pm remove"
 			frontend_update="$suauth $pm check-update 1>/dev/null"
@@ -505,6 +511,7 @@ frontend_init() {
 			frontend_noconfirm="-y"
 			;;
 		yay|yaourt|pacaur) # AUR helpers (Arch Linux)
+			commonpm="pacman"
 			frontend_install="$pm -Sy --needed"
 			frontend_remove="$pm -R"
 			frontend_update="$pm -Sy"
@@ -514,6 +521,7 @@ frontend_init() {
 			frontend_noconfirm="--noconfirm"
 			;;
 		pacman) # pacman (Arch Linux)
+			commonpm="pacman"
 			frontend_install="$suauth $pm -Sy --needed"
 			frontend_remove="$suauth $pm -R"
 			frontend_update="$suauth $pm -Sy"
@@ -523,6 +531,7 @@ frontend_init() {
 			frontend_noconfirm="--noconfirm"
 			;;
 		zypper) # zypper (openSUSE-based)
+			commonpm="zypper"
 			frontend_install="$suauth $pm install"
 			frontend_remove="$suauth $pm remove"
 			frontend_update="$suauth dnf clean expire-cache && $suauth dnf check-update"
@@ -532,6 +541,7 @@ frontend_init() {
 			frontend_noconfirm="--non-interactive"
 			;;
 		apk) # apk (Alpine Linux, postmarketOS)
+			commonpm="apk"
 			frontend_install="$suauth $pm add"
 			frontend_remove="$suauth $pm del"
 			frontend_update="$suauth $pm update"
@@ -540,6 +550,7 @@ frontend_init() {
 			frontend_listall="$pm info" # TODO: Fancy sed command that moves the version to the end and revision to the middle (use apk info -v for that)
 			;;
 		eopkg) # eopkg (Solus)
+			commonpm="apk"
 			frontend_install="$suauth $pm install"
 			frontend_remove="$suauth $pm remove"
 			frontend_update="$suauth $pm update-repo"
@@ -593,8 +604,27 @@ shoppe_install() {
 			pkg_cleanup
 			success="0"
 			[[ "$skipfrontendforchosenpkgs" == "true" ]] && [[ "$packages" == *"$package"* ]] && currentskipfrontend="true" && unset pm
-			[[ "$pm" ]] && $frontend_query ^$package$ &>/dev/null && tofrontend="$tofrontend $package" && tocheck="${tocheck/$package/}" && continue
-			[[ -z "$pm" ]] && command -v "$package" &>/dev/null && echo -e "$p_info Package $package is already installed, skipping..." && tocheck="${tocheck/$package/}" && continue
+			unset oldpackage
+			if [[ -e "$configdir/$commonpm.altlist" ]]; then
+				unset alt
+				alt=$(grep "^$package " "$configdir/$commonpm.altlist")
+				[[ "$alt" ]] && oldpackage="$package" && package=$(echo "$alt" | awk '{print $2}')
+			fi
+			if [[ -e "$configdir/custom.altlist" ]]; then
+				unset alt
+				alt=$(grep "^$package " "$configdir/custom.altlist")
+				[[ "$alt" ]] && oldpackage="$package" && package=$(echo "$alt" | awk '{print $2}')
+			fi
+			if [[ "$pm" ]] && $frontend_query ^$package$ &>/dev/null; then
+				tofrontend="$tofrontend $package"
+				if [[ "$oldpackage" ]]; then
+					tocheck="${tocheck/$oldpackage/}"
+				else
+					tocheck="${tocheck/$package/}"
+				fi
+				continue
+			fi
+			[[ -z "$pm" ]] && command -v "$package" &>/dev/null && echo -e "$p_info Package $package is already installed, skipping..." && if [[ "$oldpackage" ]]; then tocheck="${tocheck/$oldpackage/}"; else tocheck="${tocheck/$package/}"; fi && continue
 			pkg_fetch || fail "Package $package not found."
 			source "$tmpdir/$package/shoppepkg" &>/dev/null
 			if [[ "$group" ]]; then
@@ -615,24 +645,40 @@ shoppe_install() {
 					else
 						echo -e "$p_info Package $package is already installed, skipping..."
 					fi
-					tocheck="${tocheck/$package/}"
+					if [[ "$oldpackage" ]]; then
+						tocheck="${tocheck/$oldpackage/}"
+					else
+						tocheck="${tocheck/$package/}"
+					fi
 					continue
 				fi
 				if [[ "$pm" ]] && grep "^$package $pkgrel $pkgver" "$pkglist.frontend" &>/dev/null; then
 					echo -e "$p_info Package $package is already installed via frontend, skipping..."
-					tocheck="${tocheck/$package/}"
-					continue
+					if [[ "$oldpackage" ]]; then
+						tocheck="${tocheck/$oldpackage/}"
+					else
+						tocheck="${tocheck/$package/}"
+					fi
+										continue
 				fi
 				if grep "$package" "$providedpkglist" &>/dev/null; then
 					echo -e "$p_info Package $package was already provided by another package. Skipping..."
-					tocheck="${tocheck/$package/}"
+					if [[ "$oldpackage" ]]; then
+						tocheck="${tocheck/$oldpackage/}"
+					else
+						tocheck="${tocheck/$package/}"
+					fi
 					continue
 				fi
 			fi
 			toinstall="$toinstall $package"
 			[[ "$depends" ]] && tocheck="$tocheck $depends"
 			[[ "$nobuild" == "false" ]] && [[ "$makedepends" ]] && tocheck="$tocheck $makedepends"
-			tocheck="${tocheck/$package/}"
+			if [[ "$oldpackage" ]]; then
+				tocheck="${tocheck/$oldpackage/}"
+			else
+				tocheck="${tocheck/$package/}"
+			fi
 			[[ "$currentskipfrontend" == "true" ]] && pm="$oldpm"
 		done
 	done
