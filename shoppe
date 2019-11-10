@@ -802,7 +802,30 @@ shoppe_update() {
 			echo -e "$p_info Fetching repository $repoID..."
 			case $line in
 				"local: "*) cp "${line/local\:\ /}/pkglist" "$configdir/repodata/$repoID" && echo "$line" > "$configdir/repodata/tmp" && cat "$configdir/repodata/$repoID" >> "$configdir/repodata/tmp" && mv "$configdir/repodata/tmp" "$configdir/repodata/$repoID" && success="1" && echo -e "$p_success Succesfully fetched repository $repoID.";;
-				"http: "*) if [[ -e "$configdir/repodata-bak/$repoID" ]] && grep "^$line" "$configdir/repodata-bak/$repoID" &>/dev/null; then mv "$configdir/repodata-bak/$repoID" "$configdir/repodata/$repoID-old" &>/dev/null; else echo "$line" > "$configdir/repodata/$repoID"; fi; httpfetch "${line/http\:\ /}/pkglist" -O "$configdir/repodata/$repoID" && while read -re httpparse; do ! grep "$httpparse" "$configdir/repodata/$repoID-old" &>/dev/null && toparse="$toparse $(echo $httpparse | head -n1 | awk '{print $1;}')"; done < "$configdir/repodata/$repoID" && rm -rf "$configdir/repofiles/$repoID" && mkdir -p "$configdir/repofiles/$repoID" && echo -e "$p_info Fetching packages..." && for t in $toparse; do if [[ "$t" != "http: "* ]]; then mkdir -p "$configdir/repofiles/$repoID/$t"; httpfetch "${line/http\:\ /}/$t/shoppepkg" -O "$configdir/repofiles/$repoID/$t/shoppepkg"; fi; done && echo "$line" > "$configdir/repodata/tmp" && cat "$configdir/repodata/$repoID" >> "$configdir/repodata/tmp" && mv "$configdir/repodata/tmp" "$configdir/repodata/$repoID" &&  success="1" && echo -e "$p_success Successfully fetched repository $repoID.";;
+				"http: "*)  if [[ -e "$configdir/repodata-bak/$repoID" ]] && grep "^$line" "$configdir/repodata-bak/$repoID" &>/dev/null; then
+								mv "$configdir/repodata-bak/$repoID" "$configdir/repodata/$repoID-old" &>/dev/null
+							else
+								echo "$line" > "$configdir/repodata/$repoID"
+							fi
+							httpfetch "${line/http\:\ /}/pkglist" -O "$configdir/repodata/$repoID" || fail "Can't fetch repository $repoID ($line). Is it down? Is the adress right?"
+							while read -re httpparse; do
+								! grep "$httpparse" "$configdir/repodata/$repoID-old" &>/dev/null && toparse="$toparse $(echo $httpparse | head -n1 | awk '{print $1;}')"
+							done < "$configdir/repodata/$repoID"
+							rm -rf "$configdir/repofiles/$repoID"
+							mkdir -p "$configdir/repofiles/$repoID"
+							echo -e "$p_info Fetching packages..."
+							for t in $toparse; do
+								if [[ "$t" != "http: "* ]]; then
+									mkdir -p "$configdir/repofiles/$repoID/$t"
+									httpfetch "${line/http\:\ /}/$t/shoppepkg" -O "$configdir/repofiles/$repoID/$t/shoppepkg" || fail "Failed to fetch package $t from repository $repoID. Check your internet connection."
+								fi
+							done
+							echo "$line" > "$configdir/repodata/tmp" || fail "Failed to update repository $repoID."
+							cat "$configdir/repodata/$repoID" >> "$configdir/repodata/tmp" || fail "Failed to update repository $repoID."
+							mv "$configdir/repodata/tmp" "$configdir/repodata/$repoID" || fail "Failed to update repository $repoID."
+							success="1"
+							echo -e "$p_success Successfully fetched repository $repoID."
+						;;
 				"http-full: "*) httpfetch "${line/http\-full\:\ /}/pkglist" -O "$configdir/repodata/$repoID" && echo "$line" > "$configdir/repodata/tmp" && cat "$configdir/repodata/$repoID" >> "$configdir/repodata/tmp" && mv "$configdir/repodata/tmp" "$configdir/repodata/$repoID" &&  success="1" && echo -e "$p_success Successfully fetched repository $repoID.";;
 			esac
 			[[ "$success" == "0" ]] && let repoID-- && fail "Failed to fetch repository: $line"
